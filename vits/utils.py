@@ -278,6 +278,7 @@ def load_wav_to_torch(full_path):
   return torch.FloatTensor(data.astype(np.float32)), sampling_rate
 
 
+# TODO:: emotion, sensitivity 추가
 def load_filepaths_and_text(datasets: HParams):
     dset = []
     # for dset_name, dset_dict in datasets.items():

@@ -18,13 +18,18 @@
   },
   "data": {
     "training_files": {
-      "speaker": ["정윤성","임지윤","이승은", "이영복"],
+      "speaker": ["M003", "M005", "M007", "M009", "M011", "M012", "M013", "M019",
+       "M022", "M023", "M024", "M025", "M026", "M027", "M028", "M029",
+       "M030", "M031", "M032", "M033", "M034", "M035", "M037", "M039",
+       "M040", "M041", "M042", "W009", "W011", "W014", "W015", "W016",
+       "W018", "W019", "W021", "W023", "W024", "W025", "W026", "W028",
+       "W029", "W033", "W035", "W036", "W037", "W038", "W040"],
       "datadir": ["/nfs-data-2/younghun/speech/genesislab/announcer/sparkplus_202112/preprocessed/sr_22050_dereverbed"],
       "audiodir": ["aligned_data"],
       "filelist": ["/nfs-data-2/younghun/speech/genesislab/announcer/sparkplus_202112/preprocessed/sr_22050_dereverbed/metadata/train_with_punctuation.csv"]
   },
   "validation_files": {
-      "speaker": ["정윤성"],
+      "speaker": ["M003"],
       "datadir": ["/nfs-data-2/younghun/speech/genesislab/announcer/sparkplus_202112/preprocessed/sr_22050_dereverbed"],
       "audiodir": ["aligned_data"],
       "filelist": ["/nfs-data-2/younghun/speech/genesislab/announcer/sparkplus_202112/preprocessed/sr_22050_dereverbed/metadata/val_with_punctuation.csv"]
@@ -39,7 +44,9 @@
     "mel_fmin": 0.0,
     "mel_fmax": null,
     "add_blank": true,
-    "n_speakers": 109,
+    "n_speakers": 57,
+    "n_emotions": 8,
+    "n_sensitivity": 3,
     "cleaned_text": false
   },
   "model": {

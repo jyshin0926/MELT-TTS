@@ -145,6 +145,7 @@ class WN(torch.nn.Module):
       res_skip_layer = torch.nn.utils.weight_norm(res_skip_layer, name='weight')
       self.res_skip_layers.append(res_skip_layer)
 
+  # TODO:: g (speaker embedding) 있는 자리에 emotion, sensitivity 추가
   def forward(self, x, x_mask, g=None, **kwargs):
     output = torch.zeros_like(x)
     n_channels_tensor = torch.IntTensor([self.hidden_channels])
