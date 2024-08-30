@@ -1,11 +1,8 @@
 import os
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '4'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '4'
 
 os.environ['MASTER_ADDR'] = 'localhost'
-# os.environ['MASTER_PORT'] = '54310'
-# os.environ['MASTER_PORT'] = '54318'  # 230830_aihub_neutral_sdp # gpu5-1
-# os.environ['MASTER_PORT'] = '54319'  # 230902_aihub_neutral_detdp # gpu5-2 # 0830 학습 usd_sdp로 오타 -> 0902
 os.environ['MASTER_PORT'] = '54321'  # bucket_all_aihub_detdp  # gpu5-4  # 0830 학습 usd_sdp로 오타 -> 0902
 
 import json

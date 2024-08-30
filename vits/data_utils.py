@@ -1,8 +1,12 @@
+import gzip
+import pickle
 import os
 import random
 import numpy as np
 import torch
 import torch.utils.data
+from tqdm import tqdm
+
 import commons 
 from mel_processing import spectrogram_torch
 from utils import load_wav_to_torch, load_filepaths_and_text
@@ -40,41 +44,65 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         """
         Filter text & store spec lengths
         """
-        # Store spectrogram lengths for Bucketing
-        # wav_length ~= file_size / (wav_channels * Bytes per dim) = file_size / (1 * 2)
-        # spec_length = wav_length // hop_length
 
-        audiopaths_sid_text_new = []
-        lengths = []
-        for audiopath, sid, text in self.audiopaths_sid_text:
-            if self.min_text_len <= len(text) and len(text) <= self.max_text_len:
-                audiopaths_sid_text_new.append([audiopath, sid, text])
-                lengths.append(os.path.getsize(audiopath) // (2 * self.hop_length))
+        pkl_path = "/data/jaeyoung/speech/aihub/multi_style_tts/bucket_all_filter_pickle"
+
+        os.makedirs(pkl_path, exist_ok=True)
+        audio_sid_txt_pkl = f"{pkl_path}/audiopaths_sid_text_{self._stage}.pkl"
+        len_pkl = f"{pkl_path}/lengths_{self._stage}.pkl"
+        if os.path.exists(audio_sid_txt_pkl):
+            with gzip.open(audio_sid_txt_pkl, "rb") as f:
+                audiopaths_sid_text_new = pickle.load(f)
+
+        if os.path.exists(len_pkl):
+            with gzip.open(len_pkl, "rb") as f:
+                lengths = pickle.load(f)
+        else:
+            audiopaths_sid_text_new = []
+            lengths = []
+            for audiopath, sid, text in tqdm(self.audiopaths_sid_text):
+                if self.min_text_len <= len(text) and len(text) <= self.max_text_len:
+                    audiopaths_sid_text_new.append([audiopath, sid, text])
+                    lengths.append(os.path.getsize(audiopath) // (2 * self.hop_length))
+                else:
+                    continue
+
+            with gzip.open(audio_sid_txt_pkl, "wb") as f:
+                pickle.dump(audiopaths_sid_text_new, f)
+
+            with gzip.open(len_pkl, "wb") as f:
+                pickle.dump(lengths, f)
+
         self.audiopaths_sid_text = audiopaths_sid_text_new
         self.lengths = lengths
 
     # TODO:: emotion, sensitivity 도 같이 받기
     def get_audio_text_speaker_pair(self, audiopath_sid_text):
-        audiopath, sid, text = audiopath_sid_text[0], audiopath_sid_text[1], audiopath_sid_text[2]
+        audiopath, sid, text, emotion, sensitivity = audiopath_sid_text[0], audiopath_sid_text[1], audiopath_sid_text[2], audiopath_sid_text[3], audiopath_sid_text[4]
         text = self.get_text(text)
         spec, wav = self.get_audio(audiopath)
         sid = self.get_sid(sid)
-        return (text, spec, wav, sid)
+        emotion = self.get_emotion(emotion)
+        sensitivity = self.get_sensitivity(sensitivity)
+        return (text, spec, wav, sid, emotion, sensitivity)
 
-    def get_audio(self, filename):
+    def get_audio(self, filename, sid):
         audio, sampling_rate = load_wav_to_torch(filename)
+        save_dir = os.path.join(self._save_dir, f"speaker_{sid}")
+        os.makedirs(save_dir, exist_ok=True)
         if sampling_rate != self.sampling_rate:
-            raise ValueError("{} {} SR doesn't match target {} SR".format(
-                sampling_rate, self.sampling_rate))
+            raise ValueError("{} {} SR doesn't match target {} SR".format(sampling_rate, self.sampling_rate))
         audio_norm = audio / self.max_wav_value
-        audio_norm = audio_norm.unsqueeze(0)
-        spec_filename = filename.replace(".wav", ".spec.pt")
+        audio_norm = audio.unsqueeze(0)
+        _file = filename.split("/")[-1].split(".")[0]
+        # 각 Speaker별 폴더 생성
+        spec_filename = os.path.join(save_dir, f"{_file}_spec.pt")
         if os.path.exists(spec_filename):
             spec = torch.load(spec_filename)
         else:
-            spec = spectrogram_torch(audio_norm, self.filter_length,
-                self.sampling_rate, self.hop_length, self.win_length,
-                center=False)
+            spec = spectrogram_torch(
+                audio_norm, self.filter_length, self.sampling_rate, self.hop_length, self.win_length, center=False
+            )
             spec = torch.squeeze(spec, 0)
             torch.save(spec, spec_filename)
         return spec, audio_norm
@@ -92,6 +120,14 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
     def get_sid(self, sid):
         sid = torch.LongTensor([int(sid)])
         return sid
+    
+    def get_emotion(self, emotion):
+        emotion = torch.Tensor(emotion)
+        return emotion
+    
+    def get_sensitivity(self, sensitivity):
+        sensitivity = torch.Tensor(sensitivity)
+        return sensitivity
 
     def __getitem__(self, index):
         return self.get_audio_text_speaker_pair(self.audiopaths_sid_text[index])
