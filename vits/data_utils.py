@@ -23,6 +23,7 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
     def __init__(self, audiopaths_sid_text, hparams):
         self.audiopaths_sid_text = load_filepaths_and_text(audiopaths_sid_text)
         self.text_cleaners = hparams.text_cleaners
+        self._save_dir = '/workspace/jaeyoung/data/vits/emo_spec'
         self.max_wav_value = hparams.max_wav_value
         self.sampling_rate = hparams.sampling_rate
         self.filter_length  = hparams.filter_length
@@ -45,11 +46,11 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         Filter text & store spec lengths
         """
 
-        pkl_path = "/data/jaeyoung/speech/aihub/multi_style_tts/bucket_all_filter_pickle"
+        pkl_path = "/workspace/jaeyoung/speech/bucket_all_filter_pickle"
 
         os.makedirs(pkl_path, exist_ok=True)
-        audio_sid_txt_pkl = f"{pkl_path}/audiopaths_sid_text_{self._stage}.pkl"
-        len_pkl = f"{pkl_path}/lengths_{self._stage}.pkl"
+        audio_sid_txt_pkl = f"{pkl_path}/audiopaths_sid_text_emo.pkl"
+        len_pkl = f"{pkl_path}/lengths.pkl"
         if os.path.exists(audio_sid_txt_pkl):
             with gzip.open(audio_sid_txt_pkl, "rb") as f:
                 audiopaths_sid_text_new = pickle.load(f)
@@ -76,16 +77,17 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         self.audiopaths_sid_text = audiopaths_sid_text_new
         self.lengths = lengths
 
-    # TODO:: emotion, sensitivity 도 같이 받기
     def get_audio_text_speaker_pair(self, audiopath_sid_text):
         audiopath, sid, text, emotion, sensitivity = audiopath_sid_text[0], audiopath_sid_text[1], audiopath_sid_text[2], audiopath_sid_text[3], audiopath_sid_text[4]
         text = self.get_text(text)
-        spec, wav = self.get_audio(audiopath)
         sid = self.get_sid(sid)
+        spec, wav = self.get_audio(audiopath, sid)
         emotion = self.get_emotion(emotion)
         sensitivity = self.get_sensitivity(sensitivity)
         return (text, spec, wav, sid, emotion, sensitivity)
 
+
+    # TODO:: emotion, sensitivity 로 만들어야 하는지?
     def get_audio(self, filename, sid):
         audio, sampling_rate = load_wav_to_torch(filename)
         save_dir = os.path.join(self._save_dir, f"speaker_{sid}")

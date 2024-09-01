@@ -23,16 +23,21 @@
        "M030", "M031", "M032", "M033", "M034", "M035", "M037", "M039",
        "M040", "M041", "M042", "W009", "W011", "W014", "W015", "W016",
        "W018", "W019", "W021", "W023", "W024", "W025", "W026", "W028",
-       "W029", "W033", "W035", "W036", "W037", "W038", "W040"],
-      "datadir": ["/nfs-data-2/younghun/speech/genesislab/announcer/sparkplus_202112/preprocessed/sr_22050_dereverbed"],
-      "audiodir": ["aligned_data"],
-      "filelist": ["/nfs-data-2/younghun/speech/genesislab/announcer/sparkplus_202112/preprocessed/sr_22050_dereverbed/metadata/train_with_punctuation.csv"]
+       "W029", "W033", "W035", "W036", "W037", "W038", "W040",
+       "11","12","13","14","15","16","17","18","19","20"],
+      "emotion": ["angry", "contempt", "disgusted", "fear", "happy", "neutral", "sad", "surprised"],
+      "sensitivity": [1, 2, 3],
+      "datadir": ["/workspace/jaeyoung/datasets/mm-tts-dataset/raw", "/workspace/jaeyoung/datasets/Emotion_Speech_Dataset"],
+      "audiodir": ["",""],
+      "filelist": ["/workspace/jaeyoung/StoryTeller/MMTTS.csv", "/workspace/jaeyoung/StoryTeller/ESD_eng.csv"]
   },
   "validation_files": {
       "speaker": ["M003"],
-      "datadir": ["/nfs-data-2/younghun/speech/genesislab/announcer/sparkplus_202112/preprocessed/sr_22050_dereverbed"],
-      "audiodir": ["aligned_data"],
-      "filelist": ["/nfs-data-2/younghun/speech/genesislab/announcer/sparkplus_202112/preprocessed/sr_22050_dereverbed/metadata/val_with_punctuation.csv"]
+      "emotion": ["angry", "contempt", "disgusted", "fear", "happy", "neutral", "sad", "surprised"],
+      "sensitivity": [1, 2, 3],
+      "datadir": ["/workspace/jaeyoung/datasets/mm-tts-dataset/raw"],
+      "audiodir": ["",""],
+      "filelist": ["/workspace/jaeyoung/StoryTeller/MMTTS.csv"]
   },
     "text_cleaners":["english_cleaners2"],
     "max_wav_value": 32768.0,

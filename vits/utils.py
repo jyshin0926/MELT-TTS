@@ -17,7 +17,7 @@ logger = logging
 
 def get_hparams(init=True):
   parser = argparse.ArgumentParser()
-  parser.add_argument('-c', '--config', type=str, default="./configs/base.json",
+  parser.add_argument('-c', '--config', type=str, default="./configs/esd_mm.json",
                       help='JSON file for configuration')
   parser.add_argument('-m', '--model', type=str, required=True,
                       help='Model name')
@@ -284,20 +284,28 @@ def load_filepaths_and_text(datasets: HParams):
     # for dset_name, dset_dict in datasets.items():
     data_paths = datasets["datadir"]
     speaker_name = datasets["speaker"]
+    emotion_name = datasets["emotion"]
+    sensitivity_name = datasets["sensitivity"]
     speaker_id = create_speaker_lookup_table(speaker_name)
+    emotion_id = create_emotion_lookup_table(emotion_name)
+    sensitivity_id = create_sensitivity_lookup_table(sensitivity_name)
+
 
     for i, path in enumerate(data_paths):
         folder_path = path
         audiodir = datasets["audiodir"][i]
         filename = datasets["filelist"][i]
+        # wav_folder_prefix = os.path.join(folder_path, audiodir)
 
-        wav_folder_prefix = os.path.join(folder_path, audiodir)
         metadata = pd.read_csv(filename)
         metadata = metadata[metadata["speaker_name"].isin(list(speaker_id.keys()))]
-        metadata["path"] = wav_folder_prefix + "/" + metadata["speaker_name"] + "/" + metadata["basename"] + ".wav"
+
+        metadata["path"] = metadata["audiopath"]
         metadata["text"] = metadata["text"].apply(lambda text: text.strip("{}"))
         metadata["speaker_id"] = metadata["speaker_name"].apply(lambda name: speaker_id[name])
-        dset.extend(metadata[["path", "speaker_id", "text"]].values.tolist())
+        metadata['emotion_id'] = metadata['emotion'].apply(lambda name: emotion_id[name])
+        metadata['sensitivity_id'] = metadata['sensitivity'].apply(lambda name: sensitivity_id[name])
+        dset.extend(metadata[["path", "speaker_id", "text", "emotion_id", "sensitivity_id"]].values.tolist())
 
     return dset
 
@@ -307,6 +315,22 @@ def create_speaker_lookup_table(data):
     d = {speaker_ids[i]: i for i in range(len(speaker_ids))}
     print("Number of speakers:", len(d))
     print("Speaker IDS", d)
+    return d
+
+  
+def create_emotion_lookup_table(data):
+    emotion_ids = list(np.sort(np.unique([x for x in data]))[::-1])
+    d = {emotion_ids[i]: i for i in range(len(emotion_ids))}
+    print("Number of emotions:", len(d))
+    print("Emotion IDS", d)
+    return d
+
+
+def create_sensitivity_lookup_table(data):
+    sensitivity_ids = list(np.sort(np.unique([x for x in data]))[::-1])
+    d = {sensitivity_ids[i]: i for i in range(len(sensitivity_ids))}
+    print("Number of sensitivities:", len(d))
+    print("Sensitivity IDS", d)
     return d
 
 
