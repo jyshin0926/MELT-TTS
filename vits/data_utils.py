@@ -182,8 +182,10 @@ class TextAudioSpeakerCollate():
             text_lengths[i] = text.size(0)
 
             spec = row[1]
-            spec_padded[i, :, :spec.size(1)] = spec
-            spec_lengths[i] = spec.size(1)
+            spec_padded[i, :, :spec.size(0)] = spec
+            spec_lengths[i] = spec.size(0)
+            # spec_padded[i, :, :spec.size(1)] = spec
+            # spec_lengths[i] = spec.size(1)
 
             wav = row[2]
             wav_padded[i, :, :wav.size(1)] = wav

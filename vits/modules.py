@@ -93,9 +93,13 @@ class DDSConv(nn.Module):
       self.norms_1.append(LayerNorm(channels))
       self.norms_2.append(LayerNorm(channels))
 
-  def forward(self, x, x_mask, g=None):
+  def forward(self, x, x_mask, g=None, emo_g=None, sst_g=None):
     if g is not None:
       x = x + g
+    if emo_g is not None:
+      x = x + emo_g
+    if sst_g is not None:
+      x = x + sst_g
     for i in range(self.n_layers):
       y = self.convs_sep[i](x * x_mask)
       y = self.norms_1[i](y)
@@ -146,13 +150,20 @@ class WN(torch.nn.Module):
       self.res_skip_layers.append(res_skip_layer)
 
   # TODO:: g (speaker embedding) 있는 자리에 emotion, sensitivity 추가
-  def forward(self, x, x_mask, g=None, emo=None, sst=None, **kwargs):
+  def forward(self, x, x_mask, g=None, emo_g=None, sst_g=None, **kwargs):
     output = torch.zeros_like(x)
     n_channels_tensor = torch.IntTensor([self.hidden_channels])
 
     if g is not None:
       g = self.cond_layer(g)
 
+    if emo_g is not None:
+      emo_g = self.cond_layer(emo_g)
+
+    if sst_g is not None:
+      sst_g = self.cond_layer(sst_g)
+
+    # TODO:: emo_g, sst_g 추가해야하는지 고민 필요
     for i in range(self.n_layers):
       x_in = self.in_layers[i](x)
       if g is not None:
@@ -322,10 +333,10 @@ class ResidualCouplingLayer(nn.Module):
     self.post.weight.data.zero_()
     self.post.bias.data.zero_()
 
-  def forward(self, x, x_mask, g=None, reverse=False):
+  def forward(self, x, x_mask, g=None, emo_g=None, sst_g=None, reverse=False):
     x0, x1 = torch.split(x, [self.half_channels]*2, 1)
     h = self.pre(x0) * x_mask
-    h = self.enc(h, x_mask, g=g)
+    h = self.enc(h, x_mask, g=g, emo_g=emo_g, sst_g=sst_g)
     stats = self.post(h) * x_mask
     if not self.mean_only:
       m, logs = torch.split(stats, [self.half_channels]*2, 1)
@@ -361,10 +372,10 @@ class ConvFlow(nn.Module):
     self.proj.weight.data.zero_()
     self.proj.bias.data.zero_()
 
-  def forward(self, x, x_mask, g=None, reverse=False):
+  def forward(self, x, x_mask, g=None, emo_g=None, sst_g=None, reverse=False):
     x0, x1 = torch.split(x, [self.half_channels]*2, 1)
     h = self.pre(x0)
-    h = self.convs(h, x_mask, g=g)
+    h = self.convs(h, x_mask, g=g, emo_g=emo_g, sst_g=sst_g)
     h = self.proj(h) * x_mask
 
     b, c, t = x0.shape
