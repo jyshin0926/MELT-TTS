@@ -19,7 +19,7 @@ def get_hparams(init=True):
   parser = argparse.ArgumentParser()
   parser.add_argument('-c', '--config', type=str, default="./configs/esd_mm.json",
                       help='JSON file for configuration')
-  parser.add_argument('-m', '--model', type=str, required=True,
+  parser.add_argument('-m', '--model', type=str, default="/workspace/jaeyoung/StoryTeller/vits/logs/model_0902",
                       help='Model name')
   
   args = parser.parse_args()
