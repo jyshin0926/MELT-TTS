@@ -18,11 +18,46 @@ MAX_WAV_VALUE = 32768.0
 
 def dynamic_range_compression_torch(x, C=1, clip_val=1e-5):
     """
+    Performs dynamic range compression on a tensor, supporting complex numbers.
+
     PARAMS
     ------
-    C: compression factor
+    x : torch.Tensor
+        Input tensor, can be real or complex.
+    C : float, optional
+        Compression factor.
+    clip_val : float, optional
+        Minimum value to clamp the magnitude of the tensor to avoid log(0).
+
+    Returns
+    -------
+    torch.Tensor
+        Tensor after applying dynamic range compression.
     """
-    return torch.log(torch.clamp(x, min=clip_val) * C)
+    if torch.is_complex(x):
+        # Calculate the magnitude and phase of the complex tensor
+        magnitudes = torch.abs(x)
+        phases = torch.angle(x)
+
+        # Clamp the magnitudes to avoid log(0)
+        clamped_magnitudes = torch.clamp(magnitudes, min=clip_val)
+
+        # Apply compression and convert back to complex using the original phase
+        compressed_magnitudes = torch.log(clamped_magnitudes) * C
+        output = torch.polar(compressed_magnitudes, phases)
+    else:
+        # For real tensors, apply clamping and log directly
+        output = torch.log(torch.clamp(x, min=clip_val) * C)
+
+    return output
+
+# def dynamic_range_compression_torch(x, C=1, clip_val=1e-5):
+#     """
+#     PARAMS
+#     ------
+#     C: compression factor
+#     """
+#     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 
 def dynamic_range_decompression_torch(x, C=1):
