@@ -59,7 +59,7 @@ common:
   seed: 3407
 
 checkpoint:
-  restore_file: ../../checkpoints/one-peace.pt
+  restore_file: /workspace/jaeyoung/checkpoints/one-peace_pretrained.pt
   keep_last_epochs: 3
   save_interval: 1
   best_checkpoint_metric: ???

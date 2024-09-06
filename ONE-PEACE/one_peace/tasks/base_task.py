@@ -18,7 +18,7 @@ from fairseq.dataclass import FairseqDataclass, ChoiceEnum
 from fairseq.tasks import FairseqTask, register_task
 from omegaconf import DictConfig
 
-from ..data.tsv_reader import TSVReader
+from ..data.tsv_reader import CSVReader
 from ..data.iterators import EpochBatchIterator
 
 logger = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ class BaseTaskConfig(FairseqDataclass):
     )
 
     reader_separator: str = field(
-        default='\t',
+        default=',',
         metadata={"help": ""},
     )
     feature_encoder_spec: str = II("model.encoder.audio_adapter.feature_encoder_spec")
@@ -131,7 +131,7 @@ class BaseTask(FairseqTask):
             paths = self._parse_dataset_paths()
             file_path = paths[(epoch - 1) % len(paths)]
 
-        dataset = TSVReader(file_path, self.cfg.selected_cols, self.cfg.reader_separator)
+        dataset = CSVReader(file_path, self.cfg.selected_cols, self.cfg.reader_separator)
         return dataset
 
     def get_batch_iterator(

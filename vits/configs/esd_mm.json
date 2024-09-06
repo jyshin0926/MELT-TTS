@@ -27,7 +27,7 @@
        "11","12","13","14","15","16","17","18","19","20"],
       "emotion": ["angry", "contempt", "disgusted", "fear", "happy", "neutral", "sad", "surprised"],
       "sensitivity": [1, 2, 3],
-      "datadir": ["/workspace/jaeyoung/datasets/mm-tts-dataset/raw", "/workspace/jaeyoung/datasets/Emotion_Speech_Dataset"],
+      "datadir": ["/workspace/jaeyoung/datasets/mm-tts-dataset_resampled", "/workspace/jaeyoung/datasets/ESD_eng_resampled"],
       "audiodir": ["",""],
       "filelist": ["/workspace/jaeyoung/StoryTeller/MMTTS.csv", "/workspace/jaeyoung/StoryTeller/ESD_eng.csv"]
   },
@@ -35,7 +35,7 @@
       "speaker": ["M003"],
       "emotion": ["angry", "contempt", "disgusted", "fear", "happy", "neutral", "sad", "surprised"],
       "sensitivity": [1, 2, 3],
-      "datadir": ["/workspace/jaeyoung/datasets/mm-tts-dataset/raw"],
+      "datadir": ["/workspace/jaeyoung/datasets/mm-tts-dataset_resampled"],
       "audiodir": ["",""],
       "filelist": ["/workspace/jaeyoung/StoryTeller/MMTTS.csv"]
   },

@@ -5,9 +5,10 @@ task:
   _name: image_text_retrieval
   data: ???
   valid_data: ???
-  selected_cols: image_id,image,caption
+  # selected_cols: image_id,image,caption
+  selected_cols: audiopath,caption1,caption2,caption3,caption4,caption5,emotion
   patch_image_size: 256
-  valid_file: ???
+  valid_file: None
 
 criterion:
   _name: image_text_retrieval_criterion
@@ -17,7 +18,7 @@ optimization:
   max_epoch: ???
   lr: ???
   update_freq: [1]
-  skip_remainder_batch: false
+  skip_remainder_batch: false 
 
 lr_scheduler:
   _name: adjust_cosine
