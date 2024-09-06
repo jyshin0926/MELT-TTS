@@ -80,7 +80,7 @@ class ImageTextRetrievalTask(BaseTask):
         for i in range(start_idx, end_idx, 50):
             samples_list = []
             for text in self.texts[i:min(i+50, end_idx)]:
-                item_tuple = (0, None, text)
+                item_tuple = (0, text, None)
                 sample = dataset.__getitem__(0, item_tuple)
                 samples_list.append(sample)
             samples = dataset.collater(samples_list)

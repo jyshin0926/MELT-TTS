@@ -145,7 +145,7 @@ class BaseTask(FairseqTask):
         seed=1,
         num_shards=1,
         shard_id=0,
-        num_workers=0,
+        num_workers=128,
         epoch=1,
         data_buffer_size=0,
         disable_iterator_cache=False,
