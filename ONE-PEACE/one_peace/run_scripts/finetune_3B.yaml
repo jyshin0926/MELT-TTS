@@ -32,7 +32,7 @@ optimization:
   clip_norm: 0.0
 
 dataset:
-  num_workers: 6
+  num_workers: 128
   batch_size: ???
   fixed_validation_seed: 3407
   validate_interval: 1
@@ -54,12 +54,13 @@ common:
   no_bias_decay: true
   log_format: simple
   log_interval: 10
-  user_dir: ../../user_module
+  user_dir: /workspace/jaeyoung/StoryTeller/ONE-PEACE/one_peace/user_module
   disable_iterator_cache: true
   seed: 3407
 
 checkpoint:
   restore_file: /workspace/jaeyoung/checkpoints/one-peace_pretrained.pt
+  save_dir: ???
   keep_last_epochs: 3
   save_interval: 1
   best_checkpoint_metric: ???
