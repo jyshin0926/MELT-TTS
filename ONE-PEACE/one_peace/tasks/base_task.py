@@ -104,7 +104,8 @@ class BaseTask(FairseqTask):
 
         # load dictionary
         dictionary = cls.load_dictionary(
-            os.path.join(cfg.bpe_dir, "dict.txt")
+            # os.path.join(cfg.bpe_dir, "dict.txt")
+            '/workspace/jaeyoung/StoryTeller/ONE-PEACE/one_peace/utils/BPE/dict.txt'
         )
         logger.info("dictionary: {} types".format(len(dictionary)))
         return cls(cfg, dictionary)

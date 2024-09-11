@@ -4,7 +4,7 @@ common_eval:
 
 task:
   _name: ???
-  bpe_dir: ../../utils/BPE
+  bpe_dir: /workspace/jaeyoung/StoryTeller/ONE-PEACE/one_peace/utils/BPE
 
 dataset:
   num_workers: 8
@@ -12,7 +12,6 @@ dataset:
   gen_subset: ???
 
 common:
-
   # use bf16
   fp16: false
   memory_efficient_fp16: false
@@ -28,7 +27,7 @@ common:
   log_format: simple
   log_interval: 10
   seed: 3407
-  user_dir: ../../user_module
+  user_dir: /workspace/jaeyoung/StoryTeller/ONE-PEACE/one_peace/user_module
 
 model:
   _name: ???

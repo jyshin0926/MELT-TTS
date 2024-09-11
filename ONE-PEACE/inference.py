@@ -4,25 +4,23 @@ from one_peace.models import from_pretrained
 from tqdm import tqdm
 import pandas as pd
 import os
-# os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb=512'
 
 # Initialize device and model
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = from_pretrained(
-    # model_name_or_path="/workspace/jaeyoung/checkpoints/onepeace_pretrained_chkpoint/finetune_al_retrieval_onepiece.pt",
-    model_name_or_path="/home/data/checkpoints/onepeace_pretrained_chkpoint/finetune_al_retrieval_onepiece.pt",
+    model_name_or_path="/workspace/jaeyoung/checkpoints/one_peace/mmtts_al_vl_0908/checkpoint_best.pt",
     model_type="one_peace_retrieval",
     device=device,
     dtype="float16"
 )
 
 # Load captions and prepare audio files
-captions_path = "/home/data/clotho_dataset/clotho_captions_evaluation.csv"
-audio_dir = "/home/data/clotho_dataset/evaluation"
+captions_path = "/workspace/jaeyoung/StoryTeller/valid1000_merged_caption_MMTTS.csv"
+audio_dir = "/workspace/jaeyoung/datasets/mm-tts-dataset/raw"
 df = pd.read_csv(captions_path)
-text_queries = df['caption_1'].tolist()
+text_queries = df['caption1'].tolist()[:10]
 audio_files = os.listdir(audio_dir)
-audio_list = [os.path.join(audio_dir, x) for x in audio_files if not x.startswith('._')]
+audio_list = [os.path.join(audio_dir, x) for x in audio_files if not x.startswith('._')][:1000]
 
 # Prepare results dataframe
 results_df = pd.DataFrame(columns=['caption', 'fname_1', 'fname_2', 'fname_3', 'fname_4', 'fname_5', 'fname_6', 'fname_7', 'fname_8', 'fname_9', 'fname_10'])
@@ -61,9 +59,10 @@ if __name__ == '__main__':
             top_audio_indices = top_audio_indices.cpu().numpy().tolist()
             top_files = [audio_list[idx] for idx in top_audio_indices]
             # results_df.loc[len(results_df)] = [text_queries[text_idx]] + top_files
-            results_df.loc[len(results_df)] = [text_queries[text_idx]] + os.path.basename(top_files)
-
+            print(f'text_queries:{text_queries} || top_files:{top_files}')
+            results_df.loc[len(results_df)] = [text_queries[text_idx]] + [os.path.basename(file) for file in top_files]
+            
         # Save results to CSV
-        results_csv_path = '/workspace/jaeyoung/evaluation_dataset/submission/onepeace_clotho_eval_caption1_results.csv'
+        results_csv_path = '/workspace/jaeyoung/StoryTeller/inferred_caption_MMTTS.csv'
         results_df.to_csv(results_csv_path, index=False)
         print(f"Results saved to {results_csv_path}")

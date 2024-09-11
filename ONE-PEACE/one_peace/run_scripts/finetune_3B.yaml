@@ -4,8 +4,7 @@ task:
   data: ???
   valid_data: ???
   selected_cols: ???
-  bpe_dir: ../../utils/BPE
-
+  bpe_dir: /workspace/jaeyoung/StoryTeller/ONE-PEACE/one_peace/utils/BPE
   max_src_length: 70
   patch_image_size: 256
   valid_file: ???
