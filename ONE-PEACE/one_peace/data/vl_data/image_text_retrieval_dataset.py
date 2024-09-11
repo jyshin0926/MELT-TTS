@@ -38,10 +38,11 @@ class ImageTextRetrievalDataset(BaseDataset):
     def __getitem__(self, index, item_tuple=None):
         item_tuple = self.dataset[index] if item_tuple is None else item_tuple
         # uniq_id, image, caption = item_tuple
-        filename,caption1,caption2,caption3,caption4,caption5,emotion = item_tuple
-        uniq_id = filename.replace
-        if uniq_id is not None:
-            uniq_id = int(uniq_id) if isinstance(uniq_id, int) else uniq_id
+        filename,caption1,caption2,caption3,caption4,caption5 = item_tuple
+        li = filename.replace('.wav','').split('_')
+        if li is not None:
+            # uniq_id = int(uniq_id) if isinstance(uniq_id, int) else uniq_id
+            uniq_id = int(li[0][1:]+li[3]+li[4])
 
         image_dir = os.path.join('/workspace/jaeyoung/datasets/mm-tts-dataset/video_image_save', filename.replace('.wav',''))
         image_list = os.listdir(image_dir)

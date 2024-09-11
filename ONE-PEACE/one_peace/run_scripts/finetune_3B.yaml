@@ -8,6 +8,7 @@ task:
 
   max_src_length: 70
   patch_image_size: 256
+  valid_file: ???
   max_duration: 15
 
 criterion:
@@ -29,6 +30,7 @@ optimization:
   max_epoch: ???
   lr: ???
   update_freq: ???
+  skip_remainder_batch: ???
   clip_norm: 0.0
 
 dataset:
@@ -36,6 +38,7 @@ dataset:
   batch_size: ???
   fixed_validation_seed: 3407
   validate_interval: 1
+  ensure_equal_batch: ???
 
 common:
 
@@ -59,7 +62,7 @@ common:
   seed: 3407
 
 checkpoint:
-  restore_file: /workspace/jaeyoung/checkpoints/one-peace_pretrained.pt
+  restore_file: ???
   save_dir: ???
   keep_last_epochs: 3
   save_interval: 1

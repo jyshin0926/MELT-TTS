@@ -4,6 +4,8 @@
 # found in the LICENSE file in the root directory.
 
 import torch
+import os
+import random
 
 from ..base_dataset import BaseDataset
 
@@ -26,10 +28,13 @@ class AudioTextRetrievalDataset(BaseDataset):
 
     def __getitem__(self, index, item_tuple=None):
         item_tuple = self.dataset[index] if item_tuple is None else item_tuple
-        uniq_id, audio, caption, duration = item_tuple
-        if uniq_id is not None:
-            uniq_id = int(uniq_id) if isinstance(uniq_id, int) or uniq_id.isdigit() else uniq_id
-
+        # uniq_id, audio, caption, duration = item_tuple
+        filename,caption1,caption2,caption3,caption4,caption5 = item_tuple
+        li = filename.replace('.wav','').split('_')
+        if li is not None:
+            # uniq_id = int(uniq_id) if isinstance(uniq_id, int) else uniq_id
+            uniq_id = int(li[0][1:]+li[3]+li[4])
+        audio = os.path.join('/workspace/jaeyoung/datasets/mm-tts-dataset/raw',filename)
         if audio is not None:
             wav, curr_sample_rate = self.read_audio(audio)
             feats = torch.tensor(wav)
@@ -39,7 +44,8 @@ class AudioTextRetrievalDataset(BaseDataset):
         feats = self.audio_postprocess(feats, curr_sample_rate, self.max_duration)
         T = self._get_mask_indices_dims(feats.size(-1), self.feature_encoder_spec)
         audio_padding_mask = torch.zeros(T + 1).bool()
-
+        caption_list = [caption1, caption2, caption3, caption4, caption5]
+        caption = random.choice(caption_list)
         caption = self.process_text(caption)
         text_src_item = self.encode_text(' {}'.format(caption), self.max_src_length)
 

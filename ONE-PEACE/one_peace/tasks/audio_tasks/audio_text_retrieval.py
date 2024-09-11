@@ -5,7 +5,7 @@
 
 from dataclasses import dataclass, field
 from typing import Optional
-import json
+import pandas as pd
 import logging
 import torch
 import torch.distributed as dist
@@ -41,14 +41,18 @@ class AudioTextRetrievalTask(BaseTask):
     def load_dataset(self, split, epoch=1, **kwargs):
         dataset = super().load_dataset(split, epoch, **kwargs)
 
-        if self.text_ids is None and self.cfg.valid_file is not None:
-            self.text_ids = []
-            self.texts = []
-            for text_id, text_list in json.load(open(self.cfg.valid_file)).items():
-                for text in text_list:
-                    self.text_ids.append(int(text_id))
-                    self.texts.append(text)
-            self.text_ids = torch.tensor(self.text_ids).cuda()
+        # if self.text_ids is None and self.cfg.valid_file is not None:
+        self.text_ids = []
+        self.texts = []
+        # data = pd.read_csv(self.cfg.valid_file)
+        data = pd.read_csv('/workspace/jaeyoung/StoryTeller/valid1000_merged_caption_MMTTS.csv')
+
+        for index, row in data.iterrows():
+            self.text_ids.append(index)   # DataFrame의 인덱스를 저장
+            # self.texts.append(row['caption1'])  # 'caption' 열의 값을 저장
+            self.texts.append((row['caption1'],row['caption2'],row['caption3'],row['caption4'],row['caption5']))  # 'caption' 열의 값을 저장
+        self.text_ids = torch.tensor(self.text_ids).cuda()
+
 
         self.datasets[split] = AudioTextRetrievalDataset(
             split,
@@ -81,9 +85,8 @@ class AudioTextRetrievalTask(BaseTask):
         text_logits_list = []
         for i in range(start_idx, end_idx, 50):
             samples_list = []
-            for text in self.texts[i:min(i+50, end_idx)]:
-                text = "This is a sound of " + text if self.cfg.use_template else text
-                item_tuple = (0, None, text, 1)
+            for text1, text2, text3, text4, text5 in self.texts[i:min(i+50, end_idx)]:
+                item_tuple = ('M028_contempt_level_3_003.wav', text1, text2, text2, text4, text5)
                 sample = dataset.__getitem__(0, item_tuple)
                 samples_list.append(sample)
             samples = dataset.collater(samples_list)
