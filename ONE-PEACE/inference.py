@@ -9,6 +9,7 @@ import os
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = from_pretrained(
     model_name_or_path="/workspace/jaeyoung/checkpoints/one_peace/mmtts_al_vl_0908/checkpoint_best.pt",
+    # model_name_or_path="/workspace/jaeyoung/checkpoints/one-peace_pretrained.pt",
     model_type="one_peace_retrieval",
     device=device,
     dtype="float16"
@@ -18,7 +19,8 @@ model = from_pretrained(
 captions_path = "/workspace/jaeyoung/StoryTeller/valid1000_merged_caption_MMTTS.csv"
 audio_dir = "/workspace/jaeyoung/datasets/mm-tts-dataset/raw"
 df = pd.read_csv(captions_path)
-text_queries = df['caption1'].tolist()[:10]
+# text_queries = df['caption1'].tolist()[:10]
+text_queries = ['A girl said with her sorrowful eyes.']
 audio_files = os.listdir(audio_dir)
 audio_list = [os.path.join(audio_dir, x) for x in audio_files if not x.startswith('._')][:1000]
 

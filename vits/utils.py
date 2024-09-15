@@ -8,18 +8,144 @@ import subprocess
 import numpy as np
 from scipy.io.wavfile import read
 import torch
-import pandas as pd
 
 MATPLOTLIB_FLAG = False
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging
 
+
+def load_checkpoint(checkpoint_path, model, optimizer=None):
+  assert os.path.isfile(checkpoint_path)
+  checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
+  iteration = checkpoint_dict['iteration']
+  learning_rate = checkpoint_dict['learning_rate']
+  if optimizer is not None:
+    optimizer.load_state_dict(checkpoint_dict['optimizer'])
+  saved_state_dict = checkpoint_dict['model']
+  if hasattr(model, 'module'):
+    state_dict = model.module.state_dict()
+  else:
+    state_dict = model.state_dict()
+  new_state_dict= {}
+  for k, v in state_dict.items():
+    try:
+      new_state_dict[k] = saved_state_dict[k]
+    except:
+      logger.info("%s is not in the checkpoint" % k)
+      new_state_dict[k] = v
+  if hasattr(model, 'module'):
+    model.module.load_state_dict(new_state_dict)
+  else:
+    model.load_state_dict(new_state_dict)
+  logger.info("Loaded checkpoint '{}' (iteration {})" .format(
+    checkpoint_path, iteration))
+  return model, optimizer, learning_rate, iteration
+
+
+def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path):
+  logger.info("Saving model and optimizer state at iteration {} to {}".format(
+    iteration, checkpoint_path))
+  if hasattr(model, 'module'):
+    state_dict = model.module.state_dict()
+  else:
+    state_dict = model.state_dict()
+  torch.save({'model': state_dict,
+              'iteration': iteration,
+              'optimizer': optimizer.state_dict(),
+              'learning_rate': learning_rate}, checkpoint_path)
+
+
+def summarize(writer, global_step, scalars={}, histograms={}, images={}, audios={}, audio_sampling_rate=22050):
+  for k, v in scalars.items():
+    writer.add_scalar(k, v, global_step)
+  for k, v in histograms.items():
+    writer.add_histogram(k, v, global_step)
+  for k, v in images.items():
+    writer.add_image(k, v, global_step, dataformats='HWC')
+  for k, v in audios.items():
+    writer.add_audio(k, v, global_step, audio_sampling_rate)
+
+
+def latest_checkpoint_path(dir_path, regex="G_*.pth"):
+  f_list = glob.glob(os.path.join(dir_path, regex))
+  f_list.sort(key=lambda f: int("".join(filter(str.isdigit, f))))
+  x = f_list[-1]
+  print(x)
+  return x
+
+
+def plot_spectrogram_to_numpy(spectrogram):
+  global MATPLOTLIB_FLAG
+  if not MATPLOTLIB_FLAG:
+    import matplotlib
+    matplotlib.use("Agg")
+    MATPLOTLIB_FLAG = True
+    mpl_logger = logging.getLogger('matplotlib')
+    mpl_logger.setLevel(logging.WARNING)
+  import matplotlib.pylab as plt
+  import numpy as np
+  
+  fig, ax = plt.subplots(figsize=(10,2))
+  im = ax.imshow(spectrogram, aspect="auto", origin="lower",
+                  interpolation='none')
+  plt.colorbar(im, ax=ax)
+  plt.xlabel("Frames")
+  plt.ylabel("Channels")
+  plt.tight_layout()
+
+  fig.canvas.draw()
+  data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+  data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+  plt.close()
+  return data
+
+
+def plot_alignment_to_numpy(alignment, info=None):
+  global MATPLOTLIB_FLAG
+  if not MATPLOTLIB_FLAG:
+    import matplotlib
+    matplotlib.use("Agg")
+    MATPLOTLIB_FLAG = True
+    mpl_logger = logging.getLogger('matplotlib')
+    mpl_logger.setLevel(logging.WARNING)
+  import matplotlib.pylab as plt
+  import numpy as np
+
+  fig, ax = plt.subplots(figsize=(6, 4))
+  im = ax.imshow(alignment.transpose(), aspect='auto', origin='lower',
+                  interpolation='none')
+  fig.colorbar(im, ax=ax)
+  xlabel = 'Decoder timestep'
+  if info is not None:
+      xlabel += '\n\n' + info
+  plt.xlabel(xlabel)
+  plt.ylabel('Encoder timestep')
+  plt.tight_layout()
+
+  fig.canvas.draw()
+  data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+  data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+  plt.close()
+  return data
+
+
+def load_wav_to_torch(full_path):
+  sampling_rate, data = read(full_path)
+  return torch.FloatTensor(data.astype(np.float32)), sampling_rate
+
+
+def load_filepaths_and_text(filename, split="|"):
+  with open(filename, encoding='utf-8') as f:
+    filepaths_and_text = [line.strip().split(split) for line in f]
+  return filepaths_and_text
+
+
 def get_hparams(init=True):
   parser = argparse.ArgumentParser()
-  parser.add_argument('-c', '--config', type=str, default="./configs/esd_mm.json",
+  parser.add_argument('-c', '--config', type=str, default="./configs/base.json",
                       help='JSON file for configuration')
-  parser.add_argument('-m', '--model', type=str, default="/workspace/jaeyoung/StoryTeller/vits/logs/model_0902",
+  parser.add_argument('-m', '--model', type=str, required=True,
                       help='Model name')
   
   args = parser.parse_args()
@@ -130,207 +256,3 @@ class HParams():
 
   def __repr__(self):
     return self.__dict__.__repr__()
-
-
-
-def load_checkpoint(checkpoint_path, model, optimizer=None):
-    hps = get_hparams()
-
-    assert os.path.isfile(checkpoint_path)
-    checkpoint_dict = torch.load(checkpoint_path, map_location="cpu")
-    iteration = checkpoint_dict["iteration"]
-    learning_rate = checkpoint_dict["learning_rate"]
-
-    saved_state_dict = checkpoint_dict["model"]
-    ignore_layers_warmstart = []
-    if len(ignore_layers_warmstart):
-        pretrained_dict = {
-            k: v
-            for k, v in saved_state_dict.items()
-            if all(l not in k for l in ignore_layers_warmstart)
-        }
-    else:
-        pretrained_dict = saved_state_dict
-
-    if hasattr(model, "module"):
-        state_dict = model.module.state_dict()
-    else:
-        state_dict = model.state_dict()
-    new_state_dict = {}
-    for k, v in state_dict.items():
-        try:
-            # new_state_dict[k] = saved_state_dict[k]
-            new_state_dict[k] = pretrained_dict[k]
-
-        except:
-            logger.info("%s is not in the checkpoint" % k)
-            new_state_dict[k] = v
-    if hasattr(model, "module"):
-        model.module.load_state_dict(new_state_dict)
-    else:
-        model.load_state_dict(new_state_dict)
-
-    if optimizer is not None:
-        optimizer.load_state_dict(checkpoint_dict["optimizer"])
-    else:
-        optimizer = torch.optim.AdamW(
-            model.parameters(),
-            hps.train.learning_rate,
-            betas=hps.train.betas,
-            eps=hps.train.eps,
-        )
-
-    logger.info(
-        "Loaded checkpoint '{}' (iteration {})".format(checkpoint_path, iteration)
-    )
-    return model, optimizer, learning_rate, iteration
-
-
-def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path):
-  logger.info("Saving model and optimizer state at iteration {} to {}".format(
-    iteration, checkpoint_path))
-  if hasattr(model, 'module'):
-    state_dict = model.module.state_dict()
-  else:
-    state_dict = model.state_dict()
-  torch.save({'model': state_dict,
-              'iteration': iteration,
-              'optimizer': optimizer.state_dict(),
-              'learning_rate': learning_rate}, checkpoint_path)
-
-
-def summarize(writer, global_step, scalars={}, histograms={}, images={}, audios={}, audio_sampling_rate=22050):
-  for k, v in scalars.items():
-    writer.add_scalar(k, v, global_step)
-  for k, v in histograms.items():
-    writer.add_histogram(k, v, global_step)
-  for k, v in images.items():
-    writer.add_image(k, v, global_step, dataformats='HWC')
-  for k, v in audios.items():
-    writer.add_audio(k, v, global_step, audio_sampling_rate)
-
-
-def latest_checkpoint_path(dir_path, regex="G_*.pth"):
-  f_list = glob.glob(os.path.join(dir_path, regex))
-  f_list.sort(key=lambda f: int("".join(filter(str.isdigit, f))))
-  x = f_list[-1]
-  print(x)
-  return x
-
-
-def plot_spectrogram_to_numpy(spectrogram):
-  global MATPLOTLIB_FLAG
-  if not MATPLOTLIB_FLAG:
-    import matplotlib
-    matplotlib.use("Agg")
-    MATPLOTLIB_FLAG = True
-    mpl_logger = logging.getLogger('matplotlib')
-    mpl_logger.setLevel(logging.WARNING)
-  import matplotlib.pylab as plt
-  import numpy as np
-  
-  fig, ax = plt.subplots(figsize=(10,2))
-  im = ax.imshow(spectrogram, aspect="auto", origin="lower",
-                  interpolation='none')
-  plt.colorbar(im, ax=ax)
-  plt.xlabel("Frames")
-  plt.ylabel("Channels")
-  plt.tight_layout()
-
-  fig.canvas.draw()
-  data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
-  data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-  plt.close()
-  return data
-
-
-def plot_alignment_to_numpy(alignment, info=None):
-  global MATPLOTLIB_FLAG
-  if not MATPLOTLIB_FLAG:
-    import matplotlib
-    matplotlib.use("Agg")
-    MATPLOTLIB_FLAG = True
-    mpl_logger = logging.getLogger('matplotlib')
-    mpl_logger.setLevel(logging.WARNING)
-  import matplotlib.pylab as plt
-  import numpy as np
-
-  fig, ax = plt.subplots(figsize=(6, 4))
-  im = ax.imshow(alignment.transpose(), aspect='auto', origin='lower',
-                  interpolation='none')
-  fig.colorbar(im, ax=ax)
-  xlabel = 'Decoder timestep'
-  if info is not None:
-      xlabel += '\n\n' + info
-  plt.xlabel(xlabel)
-  plt.ylabel('Encoder timestep')
-  plt.tight_layout()
-
-  fig.canvas.draw()
-  data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
-  data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-  plt.close()
-  return data
-
-
-def load_wav_to_torch(full_path):
-  sampling_rate, data = read(full_path)
-  return torch.FloatTensor(data.astype(np.float32)), sampling_rate
-
-
-# TODO:: emotion, sensitivity 추가
-def load_filepaths_and_text(datasets: HParams):
-    dset = []
-    # for dset_name, dset_dict in datasets.items():
-    data_paths = datasets["datadir"]
-    speaker_name = datasets["speaker"]
-    emotion_name = datasets["emotion"]
-    sensitivity_name = datasets["sensitivity"]
-    speaker_id = create_speaker_lookup_table(speaker_name)
-    emotion_id = create_emotion_lookup_table(emotion_name)
-    sensitivity_id = create_sensitivity_lookup_table(sensitivity_name)
-
-
-    for i, path in enumerate(data_paths):
-        folder_path = path
-        audiodir = datasets["audiodir"][i]
-        filename = datasets["filelist"][i]
-        # wav_folder_prefix = os.path.join(folder_path, audiodir)
-
-        metadata = pd.read_csv(filename)
-        metadata = metadata[metadata["speaker_name"].isin(list(speaker_id.keys()))]
-
-        metadata["path"] = metadata["audiopath"]
-        metadata["text"] = metadata["text"].apply(lambda text: text.strip("{}"))
-        metadata["speaker_id"] = metadata["speaker_name"].apply(lambda name: speaker_id[name])
-        metadata['emotion_id'] = metadata['emotion'].apply(lambda name: emotion_id[name])
-        metadata['sensitivity_id'] = metadata['sensitivity'].apply(lambda name: sensitivity_id[name])
-        dset.extend(metadata[["path", "speaker_id", "text", "emotion_id", "sensitivity_id"]].values.tolist())
-
-    return dset
-
-
-def create_speaker_lookup_table(data):
-    speaker_ids = list(np.sort(np.unique([x for x in data]))[::-1])
-    d = {speaker_ids[i]: i for i in range(len(speaker_ids))}
-    print("Number of speakers:", len(d))
-    print("Speaker IDS", d)
-    return d
-
-  
-def create_emotion_lookup_table(data):
-    emotion_ids = list(np.sort(np.unique([x for x in data]))[::-1])
-    d = {emotion_ids[i]: i for i in range(len(emotion_ids))}
-    print("Number of emotions:", len(d))
-    print("Emotion IDS", d)
-    return d
-
-
-def create_sensitivity_lookup_table(data):
-    sensitivity_ids = list(np.sort(np.unique([x for x in data]))[::-1])
-    d = {sensitivity_ids[i]: i for i in range(len(sensitivity_ids))}
-    print("Number of sensitivities:", len(d))
-    print("Sensitivity IDS", d)
-    return d
-
-

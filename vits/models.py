@@ -47,18 +47,12 @@ class StochasticDurationPredictor(nn.Module):
     if gin_channels != 0:
       self.cond = nn.Conv1d(gin_channels, filter_channels, 1)
 
-  def forward(self, x, x_mask, w=None, g=None, emo_g=None, sst_g=None, reverse=False, noise_scale=1.0):
+  def forward(self, x, x_mask, w=None, g=None, reverse=False, noise_scale=1.0):
     x = torch.detach(x)
     x = self.pre(x)
     if g is not None:
       g = torch.detach(g)
       x = x + self.cond(g)
-    if emo_g is not None:
-      emo_g = torch.detach(emo_g)
-      x = x + self.cond(emo_g)
-    if sst_g is not None:
-      sst_g = torch.detach(sst_g)
-      x = x + self.cond(sst_g)
     x = self.convs(x, x_mask)
     x = self.proj(x) * x_mask
 
@@ -73,7 +67,6 @@ class StochasticDurationPredictor(nn.Module):
       e_q = torch.randn(w.size(0), 2, w.size(2)).to(device=x.device, dtype=x.dtype) * x_mask
       z_q = e_q
       for flow in self.post_flows:
-        # TODO:: emo_g, sst_g 추가?
         z_q, logdet_q = flow(z_q, x_mask, g=(x + h_w))
         logdet_tot_q += logdet_q
       z_u, z1 = torch.split(z_q, [1, 1], 1) 
@@ -122,17 +115,11 @@ class DurationPredictor(nn.Module):
     if gin_channels != 0:
       self.cond = nn.Conv1d(gin_channels, in_channels, 1)
 
-  def forward(self, x, x_mask, g=None, emo_g=None, sst_g=None):
+  def forward(self, x, x_mask, g=None):
     x = torch.detach(x)
     if g is not None:
       g = torch.detach(g)
       x = x + self.cond(g)
-    if emo_g is not None:
-      emo_g = torch.detach(emo_g)
-      x = x + self.cond(emo_g)
-    if sst_g is not None:
-      sst_g = torch.detach(sst_g)
-      x = x + self.cond(sst_g)
     x = self.conv_1(x * x_mask)
     x = torch.relu(x)
     x = self.norm_1(x)
@@ -212,13 +199,13 @@ class ResidualCouplingBlock(nn.Module):
       self.flows.append(modules.ResidualCouplingLayer(channels, hidden_channels, kernel_size, dilation_rate, n_layers, gin_channels=gin_channels, mean_only=True))
       self.flows.append(modules.Flip())
 
-  def forward(self, x, x_mask, g=None, emo_g=None, sst_g=None, reverse=False):
+  def forward(self, x, x_mask, g=None, reverse=False):
     if not reverse:
       for flow in self.flows:
-        x, _ = flow(x, x_mask, g=g, emo_g=emo_g, sst_g=sst_g, reverse=reverse)
+        x, _ = flow(x, x_mask, g=g, reverse=reverse)
     else:
       for flow in reversed(self.flows):
-        x = flow(x, x_mask, g=g, emo_g=emo_g, sst_g=sst_g, reverse=reverse)
+        x = flow(x, x_mask, g=g, reverse=reverse)
     return x
 
 
@@ -244,12 +231,10 @@ class PosteriorEncoder(nn.Module):
     self.enc = modules.WN(hidden_channels, kernel_size, dilation_rate, n_layers, gin_channels=gin_channels)
     self.proj = nn.Conv1d(hidden_channels, out_channels * 2, 1)
 
-
-  def forward(self, x, x_lengths, g=None, emo=None, sst=None):
+  def forward(self, x, x_lengths, g=None):
     x_mask = torch.unsqueeze(commons.sequence_mask(x_lengths, x.size(2)), 1).to(x.dtype)
     x = self.pre(x) * x_mask
-    # TODO:: g (speaker embedding) 있는 자리에 emotion, sensitivity 추가
-    x = self.enc(x, x_mask, g=g, emo=emo, sst=sst)
+    x = self.enc(x, x_mask, g=g)
     stats = self.proj(x) * x_mask
     m, logs = torch.split(stats, self.out_channels, dim=1)
     z = (m + torch.randn_like(m) * torch.exp(logs)) * x_mask
@@ -425,8 +410,6 @@ class SynthesizerTrn(nn.Module):
     upsample_initial_channel, 
     upsample_kernel_sizes,
     n_speakers=0,
-    n_emotions=0,
-    n_sensitivity=0,
     gin_channels=0,
     use_sdp=True,
     **kwargs):
@@ -449,8 +432,6 @@ class SynthesizerTrn(nn.Module):
     self.upsample_kernel_sizes = upsample_kernel_sizes
     self.segment_size = segment_size
     self.n_speakers = n_speakers
-    self.n_emotions = n_emotions
-    self.n_sensitivity = n_sensitivity
     self.gin_channels = gin_channels
 
     self.use_sdp = use_sdp
@@ -475,29 +456,13 @@ class SynthesizerTrn(nn.Module):
     if n_speakers > 1:
       self.emb_g = nn.Embedding(n_speakers, gin_channels)
 
-    if n_emotions > 1:
-      self.emb_emo = nn.Embedding(n_emotions, gin_channels)
-
-    if n_sensitivity > 1:
-      self.emb_sst = nn.Embedding(n_sensitivity, gin_channels)
-
-  def forward(self, x, x_lengths, y, y_lengths, sid=None, emotion=None, sensitivity=None):
+  def forward(self, x, x_lengths, y, y_lengths, sid=None):
 
     x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
     if self.n_speakers > 0:
       g = self.emb_g(sid).unsqueeze(-1) # [b, h, 1]
     else:
       g = None
-
-    if self.n_emotions > 0:
-      emo = self.emb_emo(emotion).unsqueeze(-1) # [b, h, 1]
-    else:
-      emo = None
-
-    if self.n_sensitivity > 0:
-      sst = self.emb_sst(sensitivity).unsqueeze(-1) # [b, h, 1]
-    else:
-      sst = None
 
     z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g)
     z_p = self.flow(z, y_mask, g=g)
@@ -531,22 +496,12 @@ class SynthesizerTrn(nn.Module):
     o = self.dec(z_slice, g=g)
     return o, l_length, attn, ids_slice, x_mask, y_mask, (z, z_p, m_p, logs_p, m_q, logs_q)
 
-  def infer(self, x, x_lengths, sid=None, emotion=None, sensitivity=None, noise_scale=1, length_scale=1, noise_scale_w=1., max_len=None):
+  def infer(self, x, x_lengths, sid=None, noise_scale=1, length_scale=1, noise_scale_w=1., max_len=None):
     x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
     if self.n_speakers > 0:
       g = self.emb_g(sid).unsqueeze(-1) # [b, h, 1]
     else:
       g = None
-
-    if self.n_emotions > 0:
-      e_g = self.emb_emo(emotion).unsqueeze(-1) # [b, h, 1]
-    else:
-      e_g = None
-
-    if self.n_sensitivity > 0:
-      e_sst = self.emb_sst(sensitivity).unsqueeze(-1) # [b, h, 1]
-    else:
-      e_sst = None
 
     if self.use_sdp:
       logw = self.dp(x, x_mask, g=g, reverse=True, noise_scale=noise_scale_w)
@@ -566,3 +521,14 @@ class SynthesizerTrn(nn.Module):
     z = self.flow(z_p, y_mask, g=g, reverse=True)
     o = self.dec((z * y_mask)[:,:,:max_len], g=g)
     return o, attn, y_mask, (z, z_p, m_p, logs_p)
+
+  def voice_conversion(self, y, y_lengths, sid_src, sid_tgt):
+    assert self.n_speakers > 0, "n_speakers have to be larger than 0."
+    g_src = self.emb_g(sid_src).unsqueeze(-1)
+    g_tgt = self.emb_g(sid_tgt).unsqueeze(-1)
+    z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g_src)
+    z_p = self.flow(z, y_mask, g=g_src)
+    z_hat = self.flow(z_p, y_mask, g=g_tgt, reverse=True)
+    o_hat = self.dec(z_hat * y_mask, g=g_tgt)
+    return o_hat, y_mask, (z, z_p, z_hat)
+

@@ -91,8 +91,10 @@ class BaseTask(FairseqTask):
 
         bpe_dict = {
             "_name": "gpt2",
-            "gpt2_encoder_json": os.path.join(self.cfg.bpe_dir, "encoder.json"),
-            "gpt2_vocab_bpe": os.path.join(self.cfg.bpe_dir, "vocab.bpe")
+            # "gpt2_encoder_json": os.path.join(self.cfg.bpe_dir, "encoder.json"),
+            # "gpt2_vocab_bpe": os.path.join(self.cfg.bpe_dir, "vocab.bpe")
+            "gpt2_encoder_json": '/workspace/jaeyoung/StoryTeller/ONE-PEACE/one_peace/utils/BPE/encoder.json',
+            "gpt2_vocab_bpe": '/workspace/jaeyoung/StoryTeller/ONE-PEACE/one_peace/utils/BPE/vocab.bpe'
         }
         bpe_dict = DictConfig(bpe_dict)
         self.bpe = self.build_bpe(bpe_dict)
