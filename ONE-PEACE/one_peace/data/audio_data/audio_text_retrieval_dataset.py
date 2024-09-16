@@ -38,7 +38,7 @@ class AudioTextRetrievalDataset(BaseDataset):
                 uniq_id = int(li[0]+str(int(li[1])))
             else:
                 uniq_id = int(li[0][1:]+li[3]+li[4])
-            audio = audiopath
+        audio = audiopath
         if audio is not None:
             wav, curr_sample_rate = self.read_audio(audio)
             feats = torch.tensor(wav)
