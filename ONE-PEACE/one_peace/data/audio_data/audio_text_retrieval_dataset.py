@@ -29,12 +29,16 @@ class AudioTextRetrievalDataset(BaseDataset):
     def __getitem__(self, index, item_tuple=None):
         item_tuple = self.dataset[index] if item_tuple is None else item_tuple
         # uniq_id, audio, caption, duration = item_tuple
-        filename,caption1,caption2,caption3,caption4,caption5 = item_tuple
-        li = filename.replace('.wav','').split('_')
+        audiopath,caption1,caption2,caption3,caption4,caption5 = item_tuple
+        
+        li = os.path.basename(audiopath).replace('.wav','').split('_')
         if li is not None:
             # uniq_id = int(uniq_id) if isinstance(uniq_id, int) else uniq_id
-            uniq_id = int(li[0][1:]+li[3]+li[4])
-        audio = os.path.join('/workspace/jaeyoung/datasets/mm-tts-dataset/raw',filename)
+            if 'Emotion_Speech' in audiopath:
+                uniq_id = int(li[0]+str(int(li[1])))
+            else:
+                uniq_id = int(li[0][1:]+li[3]+li[4])
+            audio = audiopath
         if audio is not None:
             wav, curr_sample_rate = self.read_audio(audio)
             feats = torch.tensor(wav)

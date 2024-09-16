@@ -3,9 +3,10 @@ default_yaml: /workspace/jaeyoung/StoryTeller/ONE-PEACE/one_peace/run_scripts/fi
 
 task:
   _name: audio_text_retrieval
-  data: /workspace/jaeyoung/StoryTeller/merged_caption_MMTTS.csv
+  # data: /workspace/jaeyoung/StoryTeller/merged_caption_MMTTS.csv
+  data: /workspace/jaeyoung/StoryTeller/Updated_ESD_with_Captions.csv
   valid_data: /workspace/jaeyoung/StoryTeller/valid1000_merged_caption_MMTTS.csv
-  selected_cols: filename,caption1,caption2,caption3,caption4,caption5
+  selected_cols: audiopath,caption1,caption2,caption3,caption4,caption5
   valid_file: /workspace/jaeyoung/StoryTeller/valid1000_merged_caption_MMTTS.csv
   max_duration: 20
   head_type: al
@@ -28,8 +29,8 @@ common:
   layer_decay: 0.95
 
 checkpoint:
-  restore_file: /workspace/jaeyoung/checkpoints/one-peace_pretrained.pt
-  save_dir: /workspace/jaeyoung/checkpoints/one_peace/mmtts_al_vl_0908
+  restore_file: /workspace/jaeyoung/checkpoints/one_peace/mmtts_al_vl_0908/checkpoint_best.pt
+  save_dir: /workspace/jaeyoung/checkpoints/one_peace/esd_mmstts_al_0917
   best_checkpoint_metric: txt_r1
 
 

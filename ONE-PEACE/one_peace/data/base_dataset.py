@@ -51,7 +51,7 @@ class BaseDataset(FairseqDataset):
         return Image.open(path).convert("RGB")
 
     def read_audio(self, audio_path):
-        path = os.path.join(self.dataset_dir, audio_path)
+        path = os.path.join(audio_path)
         return sf.read(path, dtype="float32")
 
     def encode_text(self, text, length=None, use_bpe=True, append_eos=True):
