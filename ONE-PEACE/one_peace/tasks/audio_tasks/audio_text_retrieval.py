@@ -86,7 +86,7 @@ class AudioTextRetrievalTask(BaseTask):
         for i in range(start_idx, end_idx, 50):
             samples_list = []
             for text1, text2, text3, text4, text5 in self.texts[i:min(i+50, end_idx)]:
-                item_tuple = ('M028_contempt_level_3_003.wav', text1, text2, text2, text4, text5)
+                item_tuple = ('/workspace/jaeyoung/datasets/mm-tts-dataset/raw/M028_contempt_level_3_003.wav', text1, text2, text2, text4, text5)
                 sample = dataset.__getitem__(0, item_tuple)
                 samples_list.append(sample)
             samples = dataset.collater(samples_list)

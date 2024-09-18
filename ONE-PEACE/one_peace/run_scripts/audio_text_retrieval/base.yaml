@@ -29,8 +29,10 @@ common:
   layer_decay: 0.95
 
 checkpoint:
-  restore_file: /workspace/jaeyoung/checkpoints/one_peace/mmtts_al_vl_0908/checkpoint_best.pt
-  save_dir: /workspace/jaeyoung/checkpoints/one_peace/esd_mmstts_al_0917
+  # restore_file: /workspace/jaeyoung/checkpoints/one_peace/mmtts_al_vl_0908/checkpoint_best.pt
+  restore_file: /workspace/jaeyoung/checkpoints/one-peace_pretrained.pt
+  # save_dir: /workspace/jaeyoung/checkpoints/one_peace/esd_mmstts_al_0917
+  save_dir: /workspace/jaeyoung/checkpoints/one_peace/esd_pretrained_al_0917
   best_checkpoint_metric: txt_r1
 
 

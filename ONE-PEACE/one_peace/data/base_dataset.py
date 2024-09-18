@@ -51,21 +51,21 @@ class BaseDataset(FairseqDataset):
         path = os.path.join(self.dataset_dir, image_path)
         return Image.open(path).convert("RGB")
 
-    # def read_audio(self, audio_path):
-    #     path = os.path.join(audio_path)
-    #     return sf.read(path, dtype="float32")
+    def read_audio(self, audio_path):
+        path = os.path.join(audio_path)
+        return sf.read(path, dtype="float32")
 
-    def read_audio(self, file_path):
-        try:
-            data, samplerate = sf.read(file_path)
-        except sf.LibsndfileError:
-            print(f"Error reading {file_path} with soundfile. Trying librosa...")
-            try:
-                data, samplerate = librosa.load(file_path)
-            except Exception as e:
-                print(f"Error reading {file_path} with librosa: {str(e)}")
-                return None, None
-        return data, samplerate
+    # def read_audio(self, file_path):
+    #     try:
+    #         data, samplerate = sf.read(file_path)
+    #     except sf.LibsndfileError:
+    #         print(f"Error reading {file_path} with soundfile. Trying librosa...")
+    #         try:
+    #             data, samplerate = librosa.load(file_path)
+    #         except Exception as e:
+    #             print(f"Error reading {file_path} with librosa: {str(e)}")
+    #             return None, None
+    #     return data, samplerate
 
     def encode_text(self, text, length=None, use_bpe=True, append_eos=True):
         s = self.dict.encode_line(
