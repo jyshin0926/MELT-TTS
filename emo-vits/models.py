@@ -144,6 +144,37 @@ class DurationPredictor(nn.Module):
     x = self.proj(x * x_mask)
     return x * x_mask
 
+# TODO::EmotionEncoder (vs TextEncoder 내 emb setting)
+class EmotionEncoder(nn.Module):
+  def __init__(self,model_path):
+    super(EmotionEncoder, self).__init__()
+    self.onepeace = torch.load(model_path)
+    
+  def forward(self, text_prompt=None, vision_prompt=None):
+    # txt prompt for emotion
+    if text_prompt is not None:
+      text_features = self.onepeace.text_encoder(text_prompt) # text_encoder -> 수정 필요
+    else:
+      text_features = None
+    
+    # vision prompt for emotion
+    if vision_prompt is not None:
+      vision_features = self.onepeace.vision_encoder(vision_prompt) # vision_encoder -> 수정 필요
+    else:
+      vision_features = None
+    
+    # combine features (text and vision prompts)
+    if text_features is not None and vision_features is not None:
+      emotion_emb = torch.cat([text_features, vision_features])
+    elif text_features is not None:
+      emotion_emb = text_features
+    elif vision_features is not None:
+      emotion_emb = vision_features
+    else:
+      raise ValueError("Either text_prompt or vision_prompt must be provided")
+
+    return emotion_embedding
+
 
 class TextEncoder(nn.Module):
   def __init__(self,
@@ -401,6 +432,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         return y_d_rs, y_d_gs, fmap_rs, fmap_gs
 
 
+# TODO:: EmotionEncoder 추가
 
 class SynthesizerTrn(nn.Module):
   """
@@ -528,7 +560,7 @@ class SynthesizerTrn(nn.Module):
     logs_p = torch.matmul(attn.squeeze(1), logs_p.transpose(1, 2)).transpose(1, 2)
 
     z_slice, ids_slice = commons.rand_slice_segments(z, y_lengths, self.segment_size)
-    o = self.dec(z_slice, g=g)
+    o = self.dec(z_slice, g=g) # TODO:: g(spk_emb) 처럼 emotion embedding input 으로 주기 (extract from emotion encoder)
     return o, l_length, attn, ids_slice, x_mask, y_mask, (z, z_p, m_p, logs_p, m_q, logs_q)
 
   def infer(self, x, x_lengths, sid=None, emotion=None, sensitivity=None, noise_scale=1, length_scale=1, noise_scale_w=1., max_len=None):

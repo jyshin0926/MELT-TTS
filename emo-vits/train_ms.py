@@ -3,7 +3,7 @@ import os
 # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 os.environ['MASTER_ADDR'] = 'localhost'
-os.environ['MASTER_PORT'] = '54323'  # bucket_all_aihub_detdp  # gpu5-4  # 0830 학습 usd_sdp로 오타 -> 0902
+os.environ['MASTER_PORT'] = '54323'
 
 import json
 import argparse
