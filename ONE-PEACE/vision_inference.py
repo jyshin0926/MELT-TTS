@@ -6,7 +6,7 @@ import pandas as pd
 import os
 from glob import glob
 
-# Initialize device and model
+# TODO:: al rep model text parameters로 update한 vl model 로 추론 체크
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = from_pretrained(
     # model_name_or_path="/workspace/jaeyoung/checkpoints/one_peace/mmtts_vl_0907_lr2e-6/checkpoint_best.pt",
@@ -23,14 +23,14 @@ def find_jpg_files(root_dir):
 
 # Load captions and prepare audio files
 captions_path = "/workspace/jaeyoung/StoryTeller/valid1000_merged_caption_MMTTS.csv"
-# image_dir = "/workspace/jaeyoung/datasets/mm-tts-dataset/video_image_save"
-image_dir = "/workspace/jaeyoung/StoryTeller/ONE-PEACE/assets"
+image_dir = "/workspace/jaeyoung/datasets/mm-tts-dataset/video_image_save"
+# image_dir = "/workspace/jaeyoung/StoryTeller/ONE-PEACE/assets"
 df = pd.read_csv(captions_path)
 # text_queries = df['caption1'].tolist()[:10]
 text_queries = ['A female said with her sorrowful eyes.']
 # text_queries = ['An animal barking.']
-# image_list = find_jpg_files(image_dir)[:1000]
-image_list = [os.path.join(image_dir, x) for x in os.listdir(image_dir) if x.endswith('.jpg') or x.endswith('JPEG')]
+image_list = find_jpg_files(image_dir)[5000:9000]
+# image_list = [os.path.join(image_dir, x) for x in os.listdir(image_dir) if x.endswith('.jpg') or x.endswith('JPEG')]
 
 # Prepare results dataframe
 results_df = pd.DataFrame(columns=['caption', 'fname_1', 'fname_2', 'fname_3', 'fname_4', 'fname_5', 'fname_6', 'fname_7', 'fname_8', 'fname_9', 'fname_10'])
@@ -65,7 +65,7 @@ if __name__ == '__main__':
         # Retrieve top matching audio files for each text query
         for text_idx, single_text_features in tqdm(enumerate(all_text_features)):
             single_similarity_scores = similarity_scores[:, text_idx]
-            top_audio_indices = torch.topk(single_similarity_scores, k=1).indices
+            top_audio_indices = torch.topk(single_similarity_scores, k=5).indices
             top_audio_indices = top_audio_indices.cpu().numpy().tolist()
             top_files = [image_list[idx] for idx in top_audio_indices]
             # results_df.loc[len(results_df)] = [text_queries[text_idx]] + top_files
