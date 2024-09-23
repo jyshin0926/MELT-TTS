@@ -9,8 +9,8 @@ from glob import glob
 # TODO:: al rep model text parameters로 update한 vl model 로 추론 체크
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = from_pretrained(
-    # model_name_or_path="/workspace/jaeyoung/checkpoints/one_peace/mmtts_vl_0907_lr2e-6/checkpoint_best.pt",
-    model_name_or_path="/workspace/jaeyoung/checkpoints/one-peace_pretrained.pt",
+    model_name_or_path="/workspace/jaeyoung/checkpoints/one_peace/mmtts_vl_0907_lr2e-6/checkpoint_best.pt",
+    # model_name_or_path="/workspace/jaeyoung/checkpoints/one-peace_pretrained.pt",
     model_type="one_peace_retrieval",
     device=device,
     dtype="float16"
