@@ -29,7 +29,7 @@ df = pd.read_csv(captions_path)
 # text_queries = df['caption1'].tolist()[:10]
 text_queries = ['A female said with her sorrowful eyes.']
 # text_queries = ['An animal barking.']
-image_list = find_jpg_files(image_dir)[5000:9000]
+image_list = find_jpg_files(image_dir)[6000:9000]
 # image_list = [os.path.join(image_dir, x) for x in os.listdir(image_dir) if x.endswith('.jpg') or x.endswith('JPEG')]
 
 # Prepare results dataframe
