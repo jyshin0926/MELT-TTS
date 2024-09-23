@@ -6,7 +6,7 @@ import pandas as pd
 import os
 from glob import glob
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 
 # Initialize device and model

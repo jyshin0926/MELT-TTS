@@ -6,11 +6,14 @@ import pandas as pd
 import os
 from glob import glob
 
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+
 # TODO:: al rep model text parameters로 update한 vl model 로 추론 체크
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = from_pretrained(
     model_name_or_path="/workspace/jaeyoung/checkpoints/one_peace/mmtts_vl_0907_lr2e-6/checkpoint_best.pt",
     # model_name_or_path="/workspace/jaeyoung/checkpoints/one-peace_pretrained.pt",
+    # model_name_or_path="/workspace/jaeyoung/checkpoints/one_peace_fusion/vl_txt_updagte_0923.pt",
     model_type="one_peace_retrieval",
     device=device,
     dtype="float16"
@@ -27,9 +30,14 @@ image_dir = "/workspace/jaeyoung/datasets/mm-tts-dataset/video_image_save"
 # image_dir = "/workspace/jaeyoung/StoryTeller/ONE-PEACE/assets"
 df = pd.read_csv(captions_path)
 # text_queries = df['caption1'].tolist()[:10]
-text_queries = ['A female said with her sorrowful eyes.']
+text_queries = ['A male said with his sorrowful eyes.']
 # text_queries = ['An animal barking.']
-image_list = find_jpg_files(image_dir)[6000:9000]
+# image_list = find_jpg_files(image_dir)[6000:9000]
+image_list = ['/workspace/jaeyoung/datasets/mm-tts-dataset/video_image_save/M003_angry_level_1_001/0.jpg', '/workspace/jaeyoung/datasets/mm-tts-dataset/video_image_save/M003_fear_level_1_007/0.jpg', '/workspace/jaeyoung/datasets/mm-tts-dataset/video_image_save/M003_happy_level_2_001/1.jpg', 
+            '/workspace/jaeyoung/datasets/mm-tts-dataset/video_image_save/W040_surprised_level_2_003/1.jpg', '/workspace/jaeyoung/datasets/mm-tts-dataset/video_image_save/W040_sad_level_2_035/1.jpg', '/workspace/jaeyoung/datasets/mm-tts-dataset/video_image_save/W040_neutral_level_1_021/2.jpg',
+            '/workspace/jaeyoung/datasets/mm-tts-dataset/video_image_save/W037_sad_level_1_057/0.jpg', '/workspace/jaeyoung/datasets/mm-tts-dataset/video_image_save/W037_sad_level_1_057/1.jpg',
+            "/workspace/jaeyoung/datasets/mm-tts-dataset/video_image_save/W038_fear_level_2_001/1.jpg", "/workspace/jaeyoung/datasets/mm-tts-dataset/video_image_save/W038_contempt_level_3_010/1.jpg",
+            "/workspace/jaeyoung/datasets/mm-tts-dataset/video_image_save/W036_happy_level_1_045/2.jpg", "/workspace/jaeyoung/datasets/mm-tts-dataset/video_image_save/M029_sad_level_3_012/2.jpg"]
 # image_list = [os.path.join(image_dir, x) for x in os.listdir(image_dir) if x.endswith('.jpg') or x.endswith('JPEG')]
 
 # Prepare results dataframe
@@ -70,7 +78,7 @@ if __name__ == '__main__':
             top_files = [image_list[idx] for idx in top_audio_indices]
             # results_df.loc[len(results_df)] = [text_queries[text_idx]] + top_files
             print(f'text_queries:{text_queries} || top_files:{top_files}')
-            results_df.loc[len(results_df)] = [text_queries[text_idx]] + [file for file in top_files]
+            # results_df.loc[len(results_df)] = [text_queries[text_idx]] + [file for file in top_files]
             
         # Save results to CSV
         # results_csv_path = '/workspace/jaeyoung/StoryTeller/inferred_image_caption_MMTTS.csv'
