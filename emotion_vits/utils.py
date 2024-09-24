@@ -15,6 +15,123 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging
 
 
+def get_hparams(init=True):
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-c', '--config', type=str, default="./configs/base.json",
+                      help='JSON file for configuration')
+  parser.add_argument('-m', '--model', type=str, required=True,
+                      help='Model name')
+  
+  args = parser.parse_args()
+  model_dir = os.path.join("./logs", args.model)
+
+  if not os.path.exists(model_dir):
+    os.makedirs(model_dir)
+
+  config_path = args.config
+  config_save_path = os.path.join(model_dir, "config.json")
+  if init:
+    with open(config_path, "r") as f:
+      data = f.read()
+    with open(config_save_path, "w") as f:
+      f.write(data)
+  else:
+    with open(config_save_path, "r") as f:
+      data = f.read()
+  config = json.loads(data)
+  
+  hparams = HParams(**config)
+  hparams.model_dir = model_dir
+  return hparams
+
+
+def get_hparams_from_dir(model_dir):
+  config_save_path = os.path.join(model_dir, "config.json")
+  with open(config_save_path, "r") as f:
+    data = f.read()
+  config = json.loads(data)
+
+  hparams =HParams(**config)
+  hparams.model_dir = model_dir
+  return hparams
+
+
+def get_hparams_from_file(config_path):
+  with open(config_path, "r") as f:
+    data = f.read()
+  config = json.loads(data)
+
+  hparams =HParams(**config)
+  return hparams
+
+
+def check_git_hash(model_dir):
+  source_dir = os.path.dirname(os.path.realpath(__file__))
+  if not os.path.exists(os.path.join(source_dir, ".git")):
+    logger.warn("{} is not a git repository, therefore hash value comparison will be ignored.".format(
+      source_dir
+    ))
+    return
+
+  cur_hash = subprocess.getoutput("git rev-parse HEAD")
+
+  path = os.path.join(model_dir, "githash")
+  if os.path.exists(path):
+    saved_hash = open(path).read()
+    if saved_hash != cur_hash:
+      logger.warn("git hash values are different. {}(saved) != {}(current)".format(
+        saved_hash[:8], cur_hash[:8]))
+  else:
+    open(path, "w").write(cur_hash)
+
+
+def get_logger(model_dir, filename="train.log"):
+  global logger
+  logger = logging.getLogger(os.path.basename(model_dir))
+  logger.setLevel(logging.DEBUG)
+  
+  formatter = logging.Formatter("%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
+  if not os.path.exists(model_dir):
+    os.makedirs(model_dir)
+  h = logging.FileHandler(os.path.join(model_dir, filename))
+  h.setLevel(logging.DEBUG)
+  h.setFormatter(formatter)
+  logger.addHandler(h)
+  return logger
+
+
+class HParams():
+  def __init__(self, **kwargs):
+    for k, v in kwargs.items():
+      if type(v) == dict:
+        v = HParams(**v)
+      self[k] = v
+    
+  def keys(self):
+    return self.__dict__.keys()
+
+  def items(self):
+    return self.__dict__.items()
+
+  def values(self):
+    return self.__dict__.values()
+
+  def __len__(self):
+    return len(self.__dict__)
+
+  def __getitem__(self, key):
+    return getattr(self, key)
+
+  def __setitem__(self, key, value):
+    return setattr(self, key, value)
+
+  def __contains__(self, key):
+    return key in self.__dict__
+
+  def __repr__(self):
+    return self.__dict__.__repr__()
+  
+
 def load_checkpoint(checkpoint_path, model, optimizer=None):
   assert os.path.isfile(checkpoint_path)
   checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
@@ -135,124 +252,36 @@ def load_wav_to_torch(full_path):
   return torch.FloatTensor(data.astype(np.float32)), sampling_rate
 
 
-def load_filepaths_and_text(filename, split="|"):
-  with open(filename, encoding='utf-8') as f:
-    filepaths_and_text = [line.strip().split(split) for line in f]
-  return filepaths_and_text
-
-
-def get_hparams(init=True):
-  parser = argparse.ArgumentParser()
-  parser.add_argument('-c', '--config', type=str, default="./configs/base.json",
-                      help='JSON file for configuration')
-  parser.add_argument('-m', '--model', type=str, required=True,
-                      help='Model name')
-  
-  args = parser.parse_args()
-  model_dir = os.path.join("./logs", args.model)
-
-  if not os.path.exists(model_dir):
-    os.makedirs(model_dir)
-
-  config_path = args.config
-  config_save_path = os.path.join(model_dir, "config.json")
-  if init:
-    with open(config_path, "r") as f:
-      data = f.read()
-    with open(config_save_path, "w") as f:
-      f.write(data)
-  else:
-    with open(config_save_path, "r") as f:
-      data = f.read()
-  config = json.loads(data)
-  
-  hparams = HParams(**config)
-  hparams.model_dir = model_dir
-  return hparams
-
-
-def get_hparams_from_dir(model_dir):
-  config_save_path = os.path.join(model_dir, "config.json")
-  with open(config_save_path, "r") as f:
-    data = f.read()
-  config = json.loads(data)
-
-  hparams =HParams(**config)
-  hparams.model_dir = model_dir
-  return hparams
-
-
-def get_hparams_from_file(config_path):
-  with open(config_path, "r") as f:
-    data = f.read()
-  config = json.loads(data)
-
-  hparams =HParams(**config)
-  return hparams
-
-
-def check_git_hash(model_dir):
-  source_dir = os.path.dirname(os.path.realpath(__file__))
-  if not os.path.exists(os.path.join(source_dir, ".git")):
-    logger.warn("{} is not a git repository, therefore hash value comparison will be ignored.".format(
-      source_dir
-    ))
-    return
-
-  cur_hash = subprocess.getoutput("git rev-parse HEAD")
-
-  path = os.path.join(model_dir, "githash")
-  if os.path.exists(path):
-    saved_hash = open(path).read()
-    if saved_hash != cur_hash:
-      logger.warn("git hash values are different. {}(saved) != {}(current)".format(
-        saved_hash[:8], cur_hash[:8]))
-  else:
-    open(path, "w").write(cur_hash)
-
-
-def get_logger(model_dir, filename="train.log"):
-  global logger
-  logger = logging.getLogger(os.path.basename(model_dir))
-  logger.setLevel(logging.DEBUG)
-  
-  formatter = logging.Formatter("%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
-  if not os.path.exists(model_dir):
-    os.makedirs(model_dir)
-  h = logging.FileHandler(os.path.join(model_dir, filename))
-  h.setLevel(logging.DEBUG)
-  h.setFormatter(formatter)
-  logger.addHandler(h)
-  return logger
-
-
-class HParams():
-  def __init__(self, **kwargs):
-    for k, v in kwargs.items():
-      if type(v) == dict:
-        v = HParams(**v)
-      self[k] = v
+# def load_filepaths_and_text(filename, split="|"):
+#   with open(filename, encoding='utf-8') as f:
+#     filepaths_and_text = [line.strip().split(split) for line in f]
+#   return filepaths_and_text
+def load_filepaths_and_text(datasets: HParams):
+  dset = []
+  for dset_name, dset_dict in datasets.items():
+    data_paths = datasets["datadir"]
+    speaker_name = datasets['speaker']
+    speaker_id = create_speaker_lookup_table(speaker_name)
     
-  def keys(self):
-    return self.__dict__.keys()
+  for i, path in enumerate(data_paths):
+    folder_path = path
+    audiodir = datasets['audiodir'][i]
+    filename = datasets['filelist'][i]
+    
+    metadata = pd.read_csv(filename)
+    metadata = metadata[metadata['speaker_name'].isin(list(speaker_id.keys()))]
+    
+    metadata['path'] = metadata['audiopath']
+    metadata['text'] = metadata['text'].apply(lambda tet:text.strip("{}"))
+    metadata['speaker_id'] = metadata['speaker_name'].apply(lambda name:speaker_id[name])
+    dset.extend(metadata[['path','speker_id', 'text']].values.tolist())
+      
+  return dset
 
-  def items(self):
-    return self.__dict__.items()
 
-  def values(self):
-    return self.__dict__.values()
-
-  def __len__(self):
-    return len(self.__dict__)
-
-  def __getitem__(self, key):
-    return getattr(self, key)
-
-  def __setitem__(self, key, value):
-    return setattr(self, key, value)
-
-  def __contains__(self, key):
-    return key in self.__dict__
-
-  def __repr__(self):
-    return self.__dict__.__repr__()
+def create_speaker_lookup_table(data):
+    speaker_ids = list(np.sort(np.unique([x for x in data]))[::-1])
+    d = {speaker_ids[i]: i for i in range(len(speaker_ids))}
+    print("Number of speakers:", len(d))
+    print("Speaker IDS", d)
+    return d

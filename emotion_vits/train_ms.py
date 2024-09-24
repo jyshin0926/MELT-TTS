@@ -80,6 +80,7 @@ def run(rank, n_gpus, hps):
         batch_size=hps.train.batch_size, pin_memory=True,
         drop_last=False, collate_fn=collate_fn)
 
+  # TODO:: vision_prompt input 으로 주기?
   net_g = SynthesizerTrn(
       len(symbols),
       hps.data.filter_length // 2 + 1,

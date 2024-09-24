@@ -184,19 +184,20 @@ class EmotionIntensityModule(nn.Module):
     self.emotion_classes = emotion_classes
     
     # TODO:: embedding size setting
-    self.emotion_weights = nn.ModuleDict({emotion: nn.Linear(768, 768) for emotion in self.emotion_classes}) # size demends on the emotion_emb (Assuming enc size as 768)
+    self.emotion_weights = nn.ModuleDict({emotion: nn.Linear(1536, 1536) for emotion in self.emotion_classes}) # size demends on the emotion_emb (Assuming enc size as 768*2)
     
   def forward(self, emotion_emb, emotion_dict, intensitiy_val=None):
     combined_emotion_emb = torch.zeros_like(emotion_emb)
     for emotion, prob in emotion_dict.items():
       emotion_emb_mod = self.emotion_weights[emotion](emotion_emb)
-      weighted_emotion_emb = emtoion_emb_mod * prob
+      weighted_emotion_emb = emotion_emb_mod * prob
       combined_emotion_emb += weighted_emotion_emb
     
     if intensity_val is not None:
       intensity_val = torch.clamp(intensity_val, self.min_intensity, self.max_intensity)
     else:
-      intensity_val = sum(emotion_dict.values()/len(emotion_dict))
+      intensity_val = sum([p for p in emotion_dict.values()])/len(emotion_dict)
+      # intensity_val = sum(emotion_dict.values()/len(emotion_dict))
     
     modulated_emotion_emb = combined_emotion_emb * intensity_val
     
@@ -484,6 +485,8 @@ class SynthesizerTrn(nn.Module):
     n_speakers=0,
     gin_channels=0,
     use_sdp=True,
+    emotion_model_path='',
+    emotion_classes=[],
     **kwargs):
 
     super().__init__()
@@ -518,7 +521,9 @@ class SynthesizerTrn(nn.Module):
         p_dropout)
 
     # TODO:: emotion module
-  
+    self.emotion_enc = EmotionEncoder(emotion_model_path)
+    self.emotion_classifier = EmotionClassifierModule(emotion_classes=emotion_classes, input_size=768*2)
+    self.emotion_intensity = EmotionIntensityModule(emotion_classes=emotion_classes, min_intensity=0.0, max_intensity=1.0)
 
     self.dec = Generator(inter_channels, resblock, resblock_kernel_sizes, resblock_dilation_sizes, upsample_rates, upsample_initial_channel, upsample_kernel_sizes, gin_channels=gin_channels)
     self.enc_q = PosteriorEncoder(spec_channels, inter_channels, hidden_channels, 5, 1, 16, gin_channels=gin_channels)
@@ -532,16 +537,24 @@ class SynthesizerTrn(nn.Module):
     if n_speakers > 1:
       self.emb_g = nn.Embedding(n_speakers, gin_channels)
 
-  def forward(self, x, x_lengths, y, y_lengths, sid=None):
+  def forward(self, x, x_lengths, y, y_lengths, sid=None, vision_prompt=None):
 
     x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
+    
+    emotion_emb = self.emotion_enc(text_prompt=x, vision_prompt=vision_prompt) # TODO:: check text_prompt (x (len(symbol)) -> raw text), correct vision tensor dimensions
+    emotion_dict = self.emotion_classifier(emotion_emb)
+    modulated_emotion_emb = self.emotion_intensity(emotion_emb, emotion_dict)
+    
     if self.n_speakers > 0:
       g = self.emb_g(sid).unsqueeze(-1) # [b, h, 1]
     else:
       g = None
 
-    z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g)
-    z_p = self.flow(z, y_mask, g=g)
+    # TODO:: combine emotion embeddings with speaker embeddings? disentagle? 일단 combine
+    if g is not None:
+      modulated_emotion_emb = modulated_emotion_emb + g
+    z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=modulated_emotion_emb)
+    z_p = self.flow(z, y_mask, g=modulated_emotion_emb)
 
     with torch.no_grad():
       # negative cross-entropy
@@ -556,12 +569,13 @@ class SynthesizerTrn(nn.Module):
       attn = monotonic_align.maximum_path(neg_cent, attn_mask.squeeze(1)).unsqueeze(1).detach()
 
     w = attn.sum(2)
+    # TODO:: combine emotion embeddings with speaker embeddings? disentagle? 일단 combine
     if self.use_sdp:
-      l_length = self.dp(x, x_mask, w, g=g)
+      l_length = self.dp(x, x_mask, w, g=modulated_emotion_emb)
       l_length = l_length / torch.sum(x_mask)
     else:
       logw_ = torch.log(w + 1e-6) * x_mask
-      logw = self.dp(x, x_mask, g=g)
+      logw = self.dp(x, x_mask, g=modulated_emotion_emb)
       l_length = torch.sum((logw - logw_)**2, [1,2]) / torch.sum(x_mask) # for averaging 
 
     # expand prior
@@ -569,20 +583,29 @@ class SynthesizerTrn(nn.Module):
     logs_p = torch.matmul(attn.squeeze(1), logs_p.transpose(1, 2)).transpose(1, 2)
 
     z_slice, ids_slice = commons.rand_slice_segments(z, y_lengths, self.segment_size)
-    o = self.dec(z_slice, g=g)
+    # TODO:: combine emotion embeddings with speaker embeddings? disentagle? 일단 combine
+    o = self.dec(z_slice, g=modulated_emotion_emb)
     return o, l_length, attn, ids_slice, x_mask, y_mask, (z, z_p, m_p, logs_p, m_q, logs_q)
 
-  def infer(self, x, x_lengths, sid=None, noise_scale=1, length_scale=1, noise_scale_w=1., max_len=None):
+  # TODO:: combine emotion embeddings with speaker embeddings? disentagle? 일단 combine
+  def infer(self, x, x_lengths, sid=None, noise_scale=1, length_scale=1, noise_scale_w=1., max_len=None, vision_prompt=None):
     x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
+    
+    emotion_emb = self.emotion_enc(text_prompt=x, vision_prompt=vision_prompt)
+    emotion_dict = self.emotion_classifier(emotion_emb)
+    modulated_emotion_emb = self.emotion_intensity(emotion_emb, emotion_dict)
+    
     if self.n_speakers > 0:
       g = self.emb_g(sid).unsqueeze(-1) # [b, h, 1]
     else:
       g = None
 
+    if g is not None:
+      modulated_emotion_emb = modulated_emotion_emb + g
     if self.use_sdp:
-      logw = self.dp(x, x_mask, g=g, reverse=True, noise_scale=noise_scale_w)
+      logw = self.dp(x, x_mask, g=modulated_emotion_emb, reverse=True, noise_scale=noise_scale_w)
     else:
-      logw = self.dp(x, x_mask, g=g)
+      logw = self.dp(x, x_mask, g=modulated_emotion_emb)
     w = torch.exp(logw) * x_mask * length_scale
     w_ceil = torch.ceil(w)
     y_lengths = torch.clamp_min(torch.sum(w_ceil, [1, 2]), 1).long()
@@ -594,17 +617,30 @@ class SynthesizerTrn(nn.Module):
     logs_p = torch.matmul(attn.squeeze(1), logs_p.transpose(1, 2)).transpose(1, 2) # [b, t', t], [b, t, d] -> [b, d, t']
 
     z_p = m_p + torch.randn_like(m_p) * torch.exp(logs_p) * noise_scale
-    z = self.flow(z_p, y_mask, g=g, reverse=True)
-    o = self.dec((z * y_mask)[:,:,:max_len], g=g)
+    z = self.flow(z_p, y_mask, g=modulated_emotion_emb, reverse=True)
+    o = self.dec((z * y_mask)[:,:,:max_len], g=modulated_emotion_emb)
     return o, attn, y_mask, (z, z_p, m_p, logs_p)
 
-  def voice_conversion(self, y, y_lengths, sid_src, sid_tgt):
+  # TODO:: combine emotion embeddings with speaker embeddings? disentagle? 일단 combine
+  def voice_conversion(self, y, y_lengths, sid_src, sid_tgt, vision_prompt=None):
     assert self.n_speakers > 0, "n_speakers have to be larger than 0."
     g_src = self.emb_g(sid_src).unsqueeze(-1)
     g_tgt = self.emb_g(sid_tgt).unsqueeze(-1)
-    z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g_src)
-    z_p = self.flow(z, y_mask, g=g_src)
-    z_hat = self.flow(z_p, y_mask, g=g_tgt, reverse=True)
-    o_hat = self.dec(z_hat * y_mask, g=g_tgt)
+
+    emotion_emb_src = self.emotion_enc(text_prompt=None, vision_prompt=vision_prompt)
+    emotion_dict_src = self.emotion_classifier(emotion_emb_src)
+    modulated_emotion_emb_src = self.emotion_intensity(emotion_emb_src, emotion_dict_src)
+    modulated_emotion_emb_src = modulated_emotion_emb_src + g_src
+
+    z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=modulated_emotion_emb_src)
+    z_p = self.flow(z, y_mask, g=modulated_emotion_emb_src)
+    
+    emotion_emb_tgt = self.emotion_enc(text_prompt=None, vision_prompt=vision_prompt)
+    emotion_dict_tgt = self.emotion_classifier(emotion_emb_tgt)
+    modulated_emotion_emb_tgt = self.emotion_intensity(emotion_emb_tgt, emotion_dict_tgt)
+    modulated_emotion_emb_tgt = modulated_emotion_emb_tgt + g_tgt
+    
+    z_hat = self.flow(z_p, y_mask, g=modulated_emotion_emb_tgt, reverse=True)
+    o_hat = self.dec(z_hat * y_mask, g=modualted_emotion_emb_tgt)
     return o_hat, y_mask, (z, z_p, z_hat)
 
