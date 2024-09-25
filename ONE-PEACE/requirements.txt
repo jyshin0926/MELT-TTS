@@ -14,3 +14,5 @@ librosa==0.10.0
 wget==3.2
 pandas
 gpustat
+unidecode
+phonemizer

@@ -44,16 +44,35 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         """
         Filter text & store spec lengths
         """
-        # Store spectrogram lengths for Bucketing
-        # wav_length ~= file_size / (wav_channels * Bytes per dim) = file_size / (1 * 2)
-        # spec_length = wav_length // hop_length
 
-        audiopaths_sid_text_new = []
-        lengths = []
-        for audiopath, sid, text in self.audiopaths_sid_text:
-            if self.min_text_len <= len(text) and len(text) <= self.max_text_len:
-                audiopaths_sid_text_new.append([audiopath, sid, text])
-                lengths.append(os.path.getsize(audiopath) // (2 * self.hop_length))
+        pkl_path = "/workspace/jaeyoung/speech/vctk"
+
+        os.makedirs(pkl_path, exist_ok=True)
+        audio_sid_txt_pkl = f"{pkl_path}/vctk_sid_txt.pkl"
+        len_pkl = f"{pkl_path}/lengths.pkl"
+        if os.path.exists(audio_sid_txt_pkl):
+            with gzip.open(audio_sid_txt_pkl, "rb") as f:
+                audiopaths_sid_text_new = pickle.load(f)
+
+        if os.path.exists(len_pkl):
+            with gzip.open(len_pkl, "rb") as f:
+                lengths = pickle.load(f)
+        else:
+            audiopaths_sid_text_new = []
+            lengths = []
+            for audiopath, sid, text in tqdm(self.audiopaths_sid_text):
+                if self.min_text_len <= len(text) and len(text) <= self.max_text_len:
+                    audiopaths_sid_text_new.append([audiopath, sid, text])
+                    lengths.append(os.path.getsize(audiopath) // (2 * self.hop_length))
+                else:
+                    continue
+
+            with gzip.open(audio_sid_txt_pkl, "wb") as f:
+                pickle.dump(audiopaths_sid_text_new, f)
+
+            with gzip.open(len_pkl, "wb") as f:
+                pickle.dump(lengths, f)
+
         self.audiopaths_sid_text = audiopaths_sid_text_new
         self.lengths = lengths
 

@@ -134,18 +134,40 @@ class DurationPredictor(nn.Module):
 
 # TODO::EmotionEncoder (for emotion feature extraction)
 class EmotionEncoder(nn.Module):
-  def __init__(self,model_path):
+  def __init__(self,vision_model_path, audio_model_path):
     super(EmotionEncoder, self).__init__()
-    self.onepeace = torch.load(model_path)
+    self.vision_model = torch.load(vision_model_path, map_location='cpu')
+    self.vision_model.eval() # set to evaluation mode?
+    # for param in self.vision_model.parameters():
+    for param in self.vision_model['model'].items():
+      param.requires_grad = False # freeze vision model parameters
     
-  def forward(self, text_prompt=None, vision_prompt=None):
+    self.audio_model = torch.load(audio_model_path, map_location='cpu')
+    self.audio_model.eval()
+    for param in self.audio_model['model'].items():
+      param.requires_grad = False # freeze audio model parameters
+      
+          
+  def forward(self, text_prompt=None, vision_prompt=None, audio_prompt=None):
+      """
+      Extracts and combines features from text and vision prompts.
+
+      Args:
+          text_prompt (str): Text description, e.g., "She says with her beautiful smile."
+          vision_prompt (str): Path to the face image file, e.g., "image1.jpg".
+          audio_prompt (str, optional): Path to the audio file, e.g., "audio1.wav".
+
+      Returns:
+          torch.Tensor: Combined emotion embedding.
+      """
+      
     if text_prompt is not None:
       text_features = self.onepeace.text_encoder(text_prompt) # text_encoder -> 수정 필요
     else:
       text_features = None
     
     if vision_prompt is not None:
-      vision_features = self.onepeace.vision_encoder(vision_prompt) # vision_encoder -> 수정 필요
+      vision_features = self.vision_model.encoder(text_prompt, vision_prompt) # vision_encoder -> 수정 필요
     else:
       vision_features = None
     
@@ -170,9 +192,14 @@ class EmotionClassifierModule(nn.Module):
   def forward(self, emotion_emb):
     emotion_logits = self.classifier(emotion_emb)
     emotion_probs = F.softmax(emotion_logits, dim=-1)
-    emotion_dict = {self.emotion_classes[i]: emotion_probs[0, i].item() for i in range(len(self.emotion_classes))}
+    # emotion_dict = {self.emotion_classes[i]: emotion_probs[0, i].item() for i in range(len(self.emotion_classes))}
+    emotion_dicts = []
+    for prob in emotion_probs:
+      emotion_dict = {self.emotion_classes[i]: prob[i].item()
+                      for i in range(len(self.emotion_classes))}
+      emotion_dicts.append(emotion_dict)
     
-    return emotion_dict
+    return emotion_dicts
     
 
 # TODO:: emotion intensity (EmoQ-TTS) / Residual Vector Quantization
@@ -455,7 +482,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         discs = discs + [DiscriminatorP(i, use_spectral_norm=use_spectral_norm) for i in periods]
         self.discriminators = nn.ModuleList(discs)
 
-    def forward(self, y, y_hat):
+    def forward(self, y, y_hat): 
         y_d_rs = []
         y_d_gs = []
         fmap_rs = []

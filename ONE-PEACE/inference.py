@@ -6,12 +6,13 @@ import pandas as pd
 import os
 from glob import glob
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 
 # Initialize device and model
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = from_pretrained(
+    # model_name_or_path="/workspace/jaeyoung/checkpoints/one-peace_pretrained.pt",
     model_name_or_path="/workspace/jaeyoung/checkpoints/one_peace/esd_mmstts_al_0917/checkpoint_best.pt",
     model_type="one_peace_retrieval",
     device=device,
@@ -27,7 +28,7 @@ captions_path = "/workspace/jaeyoung/StoryTeller/valid1000_merged_caption_MMTTS.
 audio_dir = "/workspace/jaeyoung/datasets/Emotion_Speech_Dataset"
 df = pd.read_csv(captions_path)
 # text_queries = df['caption1'].tolist()[:10]
-text_queries = ['A girl said with her smiley face.']
+text_queries = ['A girl calmly said.']
 audio_files = os.listdir(audio_dir)
 audio_list = find_wav_files(audio_dir)[:10000]
 # audio_list = [os.path.join(audio_dir, x) for x in audio_files if not x.startswith('._')][:1000]
