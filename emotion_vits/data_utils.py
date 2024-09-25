@@ -33,6 +33,8 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         self.add_blank = hparams.add_blank
         self.min_text_len = getattr(hparams, "min_text_len", 1)
         self.max_text_len = getattr(hparams, "max_text_len", 190)
+        
+        self.vision_paths = self.load_vision_paths(file_path)
 
         random.seed(1234)
         random.shuffle(self.audiopaths_sid_text)
@@ -61,6 +63,8 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         text = self.get_text(text)
         spec, wav = self.get_audio(audiopath, sid)
         sid = self.get_sid(sid)
+        
+        # TODO:: implement prompt (vision, text)
         return (text, spec, wav, sid)
 
     def get_audio(self, filename, sid):
@@ -131,6 +135,8 @@ class TextAudioSpeakerCollate():
         spec_lengths = torch.LongTensor(len(batch))
         wav_lengths = torch.LongTensor(len(batch))
         sid = torch.LongTensor(len(batch))
+        
+        # TODO:: prompt (vision, text)
 
         text_padded = torch.LongTensor(len(batch), max_text_len)
         spec_padded = torch.FloatTensor(len(batch), batch[0][1].size(0), max_spec_len)

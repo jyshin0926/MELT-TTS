@@ -131,6 +131,7 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         sensitivity = torch.LongTensor([int(sensitivity)])
         return sensitivity
 
+    # TODO:: vision prompt
     def __getitem__(self, index):
         return self.get_audio_text_speaker_pair(self.audiopaths_sid_text[index])
 
