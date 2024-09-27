@@ -162,7 +162,7 @@ class EmotionEncoder(nn.Module):
       """
       
     if text_prompt is not None:
-      text_features = self.onepeace.text_encoder(text_prompt) # text_encoder -> 수정 필요
+      text_features = self.vision_model.text_encoder(text_prompt) # text_encoder -> 수정 필요
     else:
       text_features = None
     
@@ -170,8 +170,14 @@ class EmotionEncoder(nn.Module):
       vision_features = self.vision_model.encoder(text_prompt, vision_prompt) # vision_encoder -> 수정 필요
     else:
       vision_features = None
-    
-    # combine features (text and vision prompts)
+  
+    # TODO:: audio prompt???
+    if audio_prompt is not None:
+      audio_features = self.audio_model.audio_encoder(text_prompt, audio_prompt)
+    else:
+      audio_features = None  
+      
+    # combine features (text and vision prompts) (feature fusion - attention network?)
     if text_features is not None and vision_features is not None:
       emotion_emb = torch.cat([text_features, vision_features], dim=-1)
     elif text_features is not None:
@@ -179,7 +185,7 @@ class EmotionEncoder(nn.Module):
     elif vision_features is not None:
       emotion_emb = vision_features
     else:
-      raise ValueError("Either text_prompt or vision_prompt must be provided")
+      raise ValueError("Either text_prompt or vision_prompt must be provided")  
 
     return emotion_emb
 

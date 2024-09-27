@@ -7,6 +7,7 @@ import json
 import subprocess
 import numpy as np
 from scipy.io.wavfile import read
+import soundfile as sf
 import torch
 
 MATPLOTLIB_FLAG = False
@@ -17,9 +18,10 @@ logger = logging
 
 def get_hparams(init=True):
   parser = argparse.ArgumentParser()
-  parser.add_argument('-c', '--config', type=str, default="./configs/base.json",
+  parser.add_argument('-c', '--config', type=str, default="./configs/esd_mm.json",
                       help='JSON file for configuration')
   parser.add_argument('-m', '--model', type=str, required=True,
+                      default="/workspace/jaeyoung/checkpoint/VITS/0926_model"
                       help='Model name')
   
   args = parser.parse_args()
@@ -131,7 +133,16 @@ class HParams():
   def __repr__(self):
     return self.__dict__.__repr__()
   
+def freeze(model):
+  for p in model.paramters():
+    p.requires_grad = False
 
+def unfreeze(model):
+  for p in model.parameters():
+    p.requires_grad = True
+  
+
+# TODO:: 수정 필요
 def load_checkpoint(checkpoint_path, model, optimizer=None):
   assert os.path.isfile(checkpoint_path)
   checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
@@ -248,7 +259,8 @@ def plot_alignment_to_numpy(alignment, info=None):
 
 
 def load_wav_to_torch(full_path):
-  sampling_rate, data = read(full_path)
+  # sampling_rate, data = read(full_path)
+  sampling_rate, data = sf.read(full_path)
   return torch.FloatTensor(data.astype(np.float32)), sampling_rate
 
 
