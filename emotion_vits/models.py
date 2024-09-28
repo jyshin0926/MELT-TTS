@@ -503,8 +503,6 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 
         return y_d_rs, y_d_gs, fmap_rs, fmap_gs
 
-
-# TODO:: disentangle Speaker Identity from Emotion
 class SynthesizerTrn(nn.Module):
   """
   Synthesizer for Training
@@ -595,7 +593,6 @@ class SynthesizerTrn(nn.Module):
     else:
       g = None
 
-    # TODO:: combine emotion embeddings with speaker embeddings? disentagle? 일단 combine
     if g is not None:
       modulated_emotion_emb = torch.cat([modulated_emotion_emb, g],dim=-1)
       # modulated_emotion_emb = modulated_emotion_emb + g
@@ -615,7 +612,6 @@ class SynthesizerTrn(nn.Module):
       attn = monotonic_align.maximum_path(neg_cent, attn_mask.squeeze(1)).unsqueeze(1).detach()
 
     w = attn.sum(2)
-    # TODO:: combine emotion embeddings with speaker embeddings? disentagle? 일단 combine
     if self.use_sdp:
       l_length = self.dp(x, x_mask, w, g=modulated_emotion_emb)
       l_length = l_length / torch.sum(x_mask)
@@ -629,11 +625,9 @@ class SynthesizerTrn(nn.Module):
     logs_p = torch.matmul(attn.squeeze(1), logs_p.transpose(1, 2)).transpose(1, 2)
 
     z_slice, ids_slice = commons.rand_slice_segments(z, y_lengths, self.segment_size)
-    # TODO:: combine emotion embeddings with speaker embeddings? disentagle? 일단 combine
     o = self.dec(z_slice, g=modulated_emotion_emb)
     return o, l_length, attn, ids_slice, x_mask, y_mask, (z, z_p, m_p, logs_p, m_q, logs_q)
 
-  # TODO:: combine emotion embeddings with speaker embeddings? disentagle? 일단 combine
   def infer(self, x, x_lengths, sid=None, noise_scale=1, length_scale=1, noise_scale_w=1., max_len=None, vision_prompt=None):
     x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
     
