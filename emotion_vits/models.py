@@ -528,7 +528,8 @@ class SynthesizerTrn(nn.Module):
     n_speakers=0,
     gin_channels=0,
     use_sdp=True,
-    emotion_model_path='',
+    vision_model_path='/workspace/jaeyoung/checkpoints/one_peace_fusion/vl_txt_updagte_0923.pt',
+    audio_model_path='/workspace/jaeyoung/checkpoints/one_peace/esd_mmstts_al_0917/checkpoint_best.pt',
     emotion_classes=['neutral','happy','angry','sad','surprised', 'contempt', 'disgusted', 'fear'],
     **kwargs):
 
@@ -564,7 +565,7 @@ class SynthesizerTrn(nn.Module):
         p_dropout)
 
     # TODO:: emotion module
-    self.emotion_enc = EmotionEncoder(emotion_model_path)
+    self.emotion_enc = EmotionEncoder(vision_model_path=vision_model_path, audio_model_path=audio_model_path)
     self.emotion_classifier = EmotionClassifierModule(emotion_classes=emotion_classes, input_size=768*2)
     self.emotion_intensity = EmotionIntensityModule(emotion_classes=emotion_classes, min_intensity=0.0, max_intensity=1.0)
 
@@ -639,7 +640,6 @@ class SynthesizerTrn(nn.Module):
       g = self.emb_g(sid).unsqueeze(-1) # [b, h, 1]
     else:
       g = None
-
     if g is not None:
       modulated_emotion_emb = torch.cat([modulated_emotion_emb, g], dim=-1)
       # modulated_emotion_emb = modulated_emotion_emb + g

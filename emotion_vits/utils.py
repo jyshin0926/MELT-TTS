@@ -158,8 +158,10 @@ def load_checkpoint(checkpoint_path, model, optimizer=None):
   new_state_dict= {}
   for k, v in state_dict.items():
     try:
+    # if k in saved_state_dict and saved_stated_dict[k].size() == v.size():
       new_state_dict[k] = saved_state_dict[k]
     except:
+      # else:
       logger.info("%s is not in the checkpoint" % k)
       new_state_dict[k] = v
   if hasattr(model, 'module'):
@@ -258,10 +260,15 @@ def plot_alignment_to_numpy(alignment, info=None):
   return data
 
 
-def load_wav_to_torch(full_path):
+def load_wav_to_torch(full_path, target_sr=22050):
   # sampling_rate, data = read(full_path)
-  sampling_rate, data = sf.read(full_path)
-  return torch.FloatTensor(data.astype(np.float32)), sampling_rate
+  # sampling_rate, data = sf.read(full_path)
+  audio, sr = torchaudio.load(full_path)
+  if sr != target_sr:
+    resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=target_sr)
+    audio = resampler(audo)
+  return audio.squeeze(0), target_sr
+  # return torch.FloatTensor(data.astype(np.float32)), sampling_rate
 
 
 # def load_filepaths_and_text(filename, split="|"):
@@ -284,10 +291,25 @@ def load_filepaths_and_text(datasets: HParams):
     metadata = metadata[metadata['speaker_name'].isin(list(speaker_id.keys()))]
     
     metadata['path'] = metadata['audiopath']
-    metadata['text'] = metadata['text'].apply(lambda tet:text.strip("{}"))
+    metadata['text'] = metadata['text'].apply(lambda text:text.strip("{}"))
     metadata['speaker_id'] = metadata['speaker_name'].apply(lambda name:speaker_id[name])
-    dset.extend(metadata[['path','speker_id', 'text']].values.tolist())
-      
+    
+    # TODO:: text prompt
+    
+    if 'viison_path' in metadata.columns:
+      metadata['vision_path' = metadata['vision_path'].apply(lambda vp: vp if pd.notnull(vp) else "")]
+    else:
+      metadata['vision_path'] = ""
+    
+    # dset.extend(metadata[['path','speker_id', 'text', 'vision_path']].values.tolist())
+    for _, row in metadata.iterrows():
+      dset.append(
+        row['path'],
+        row['speaker_id'],
+        row['text'],
+        row['vision_path']
+      )
+
   return dset
 
 
