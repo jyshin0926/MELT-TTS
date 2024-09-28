@@ -87,9 +87,9 @@ def run(rank, n_gpus, hps):
       hps.data.filter_length // 2 + 1,
       hps.train.segment_size // hps.data.hop_length,
       n_speakers=hps.data.n_speakers,
-      # vision_model_path='',
-      # audio_model_path='',
-      # emotion_classes=['neutral','happy','angry','sad','surprised', 'contempt', 'disgusted', 'fear'],
+      vision_model_path=hps.model.vision_model_path,
+      audio_model_path=hps.model.audio_model_path,
+      emotion_classes=hps.model.emotion_classes,
       **hps.model).cuda(rank)
   net_d = MultiPeriodDiscriminator(hps.model.use_spectral_norm).cuda(rank)
   optim_g = torch.optim.AdamW(
@@ -153,7 +153,9 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
 
     with autocast(enabled=hps.train.fp16_run):
       y_hat, l_length, attn, ids_slice, x_mask, z_mask,\
-      (z, z_p, m_p, logs_p, m_q, logs_q) = net_g(x, x_lengths, spec, spec_lengths, speakers)
+      (z, z_p, m_p, logs_p, m_q, logs_q) = net_g(x, x_lengths, spec, spec_lengths, speakers,
+                                                 vision_prompt=vision_prompt,
+                                                 text_prompt=text_prompt)
 
       mel = spec_to_mel_torch(
           spec, 
@@ -236,7 +238,9 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
           scalars=scalar_dict)
 
       if global_step % hps.train.eval_interval == 0:
-        evaluate(hps, net_g, eval_loader, writer_eval)
+        evaluate(hps, net_g, eval_loader, writer_eval,
+                 vision_prompt=vision_prompt,
+                 text_prompt=text_prompt)
         utils.save_checkpoint(net_g, optim_g, hps.train.learning_rate, epoch, os.path.join(hps.model_dir, "G_{}.pth".format(global_step)))
         utils.save_checkpoint(net_d, optim_d, hps.train.learning_rate, epoch, os.path.join(hps.model_dir, "D_{}.pth".format(global_step)))
     global_step += 1
@@ -245,17 +249,20 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
     logger.info('====> Epoch: {}'.format(epoch))
 
  
-def evaluate(hps, generator, eval_loader, writer_eval, vision_prompt=None):
+def evaluate(hps, generator, eval_loader, writer_eval, vision_prompt=None, text_prompt=None):
     generator.eval()
     with torch.no_grad():
-      for batch_idx, (x, x_lengths, spec, spec_lengths, y, y_lengths, speakers) in enumerate(eval_loader):
+      for batch_idx, (x, x_lengths, spec, spec_lengths, y, y_lengths, speakers, vision_prompt, text_prompt) in enumerate(eval_loader):
         x, x_lengths = x.cuda(0), x_lengths.cuda(0)
         spec, spec_lengths = spec.cuda(0), spec_lengths.cuda(0)
         y, y_lengths = y.cuda(0), y_lengths.cuda(0)
         speakers = speakers.cuda(0)
         
         # TODO:: prompt handling (text prompt 도 고려)
-        vision_prompt = vision_prompt
+        if vision_prompt is not None:
+          vision_prompt = vision_prompt.cuda(0)
+        if text_prompt is not None:
+          text_prompt = text_prompt.cuda(0)
 
         # remove else
         x = x[:1]
@@ -265,6 +272,8 @@ def evaluate(hps, generator, eval_loader, writer_eval, vision_prompt=None):
         y = y[:1]
         y_lengths = y_lengths[:1]
         speakers = speakers[:1]
+        vision_prompt = vision_prompt[:1]
+        text_prompt = text_prompt[:1]
         break
       y_hat, attn, mask, *_ = generator.module.infer(x, x_lengths, speakers, max_len=1000, vision_prompt=vision_prompt)
       y_hat_lengths = mask.sum([1,2]).long() * hps.data.hop_length

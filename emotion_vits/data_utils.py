@@ -34,11 +34,30 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         self.min_text_len = getattr(hparams, "min_text_len", 1)
         self.max_text_len = getattr(hparams, "max_text_len", 190)
         
-        self.vision_paths = self.load_vision_paths(file_path)
-
+        # Ensure that the dataset includes 'vision_path' and 'text_prompt'
+        # It's assumed that audiopaths_sid_text is a list of lists with:
+        # [audiopath, sid, text, vision_path, text_prompt]
+        # If 'vision_path' and 'text_prompt' are not present, handle appropriately.
+        self.audiopaths_sid_text = self._ensure_prompt_fields(self.audiopaths_sid_text)
+        
         random.seed(1234)
         random.shuffle(self.audiopaths_sid_text)
         self._filter()
+
+    def _ensure_prompt_fields(self, data):
+        """
+        Ensure that each data entry has 'vision_path' and 'text_prompt'.
+        If not, append empty strings or appropriate default values.
+        """
+        for entry in data:
+            if len(entry) < 5:
+                # Append empty string for 'text_prompt'
+                entry.append("")  # text_prompt
+            if len(entry) < 6:
+                # Append empty string for 'vision_path'
+                entry.append("")  # vision_path
+        return data
+
 
     def _filter(self):
         """
@@ -78,10 +97,13 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
 
     def get_audio_text_speaker_pair(self, audiopath_sid_text):
         # separate filename, speaker_id and text
-        audiopath, sid, text = audiopath_sid_text[0], audiopath_sid_text[1], audiopath_sid_text[2]
+        # audiopath, sid, text, vision_path, text_prompt = audiopath_sid_text[0], audiopath_sid_text[1], audiopath_sid_text[2]
+        audiopath, sid, text, vision_prompt, text_prompt = audiopath_sid_text
         text = self.get_text(text)
         spec, wav = self.get_audio(audiopath, sid)
         sid = self.get_sid(sid)
+        vision_prompt = self.get_vision_prompt(vision_prompt)
+        text_prompt = self.get_text_prompt(text_prompt)
         
         # TODO:: implement prompt (vision, text)
         return (text, spec, wav, sid)
@@ -121,6 +143,40 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
     def get_sid(self, sid):
         sid = torch.LongTensor([int(sid)])
         return sid
+    
+    
+    def get_vision_prompt(self, vision_prompt):
+        if vision_prompt != "" and os.path.exists(vision_prompt):
+            image = Image.open(vision_prompt).convert("RGB")
+            transform = transforms.Compose([
+                transforms.Resize((224,224)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456,0.406],
+                                     std=[0.229, 0.224, 0.225])
+            ])
+            image =transform(image)
+        else:
+            image = torch.zeros(3,224,224)
+        return image
+    
+    def get_text_prompt(self, text_prompt):
+        if text_prompt != "":
+            prompt_norm = text_to_sequence(text_prompt, self.text_cleaners)
+            prompt_norm = torch.LongTensor(prompt_norm)
+            if self.add_blank:
+                prompt_norm = commons.intersperse(prompt_norm, 0)
+            # Depending on the model, you might need to pad or embed the text_prompt
+            # Here, we'll pad it to a fixed length (e.g., max_text_len)
+            max_prompt_len = self.max_text_len  # Or another suitable value            
+            padded_prompt = torch.zeros(max_prompt_len, dtype=torch.long)
+            if len(prompt_norm) > max_prompt_len:
+                padded_prompt[:max_prompt_len] = prompt_norm[:max_prompt_len]
+            else:
+                padded_prompt[:len(prompt_norm)] = prompt_norm
+            return padded_prompt
+        else:
+            return torch.zeros(self.max_text_len, dtype=torch.long)
+
 
     def __getitem__(self, index):
         return self.get_audio_text_speaker_pair(self.audiopaths_sid_text[index])
@@ -149,10 +205,12 @@ class TextAudioSpeakerCollate():
         max_text_len = max([len(x[0]) for x in batch])
         max_spec_len = max([x[1].size(1) for x in batch])
         max_wav_len = max([x[2].size(1) for x in batch])
+        max_text_prompt_len = max([len(x[5] for x in batch)])
 
         text_lengths = torch.LongTensor(len(batch))
         spec_lengths = torch.LongTensor(len(batch))
         wav_lengths = torch.LongTensor(len(batch))
+        text_prompt_lengths = torch.LongTensor(len(batch))
         sid = torch.LongTensor(len(batch))
         
         # TODO:: prompt (vision, text)
@@ -160,9 +218,15 @@ class TextAudioSpeakerCollate():
         text_padded = torch.LongTensor(len(batch), max_text_len)
         spec_padded = torch.FloatTensor(len(batch), batch[0][1].size(0), max_spec_len)
         wav_padded = torch.FloatTensor(len(batch), 1, max_wav_len)
+        text_prompt_padded = torch.LongTensor(len(batch), max_text_prompt_len)
+        vision_prompt_padded = torch.FloatTensor(len(batch), 3, 224,224)
+        
         text_padded.zero_()
         spec_padded.zero_()
         wav_padded.zero_()
+        text_prompt_padded.zero_()
+        vision_prompt_padded.zero_()
+        
         for i in range(len(ids_sorted_decreasing)):
             row = batch[ids_sorted_decreasing[i]]
 
@@ -179,10 +243,17 @@ class TextAudioSpeakerCollate():
             wav_lengths[i] = wav.size(1)
 
             sid[i] = row[3]
+            
+            vision_prompt = row[4]
+            vision_prompt_padded[i] = vision_prompt
+            
+            text_prompt = row[5]
+            text_prompt_padded[i, :text_prompt.size(0)] = text_prompt
+            text_prompt_length[i] = (text_prompt > 0).sum().item()
 
         if self.return_ids:
-            return text_padded, text_lengths, spec_padded, spec_lengths, wav_padded, wav_lengths, sid, ids_sorted_decreasing
-        return text_padded, text_lengths, spec_padded, spec_lengths, wav_padded, wav_lengths, sid
+            return text_padded, text_lengths, spec_padded, spec_lengths, wav_padded, wav_lengths, sid, vision_prompt_padded, text_prompt_padded, ids_sorted_decreasing
+        return text_padded, text_lengths, spec_padded, spec_lengths, wav_padded, wav_lengths, sid, vision_prompt_padded, text_prompt_padded
 
 
 class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
