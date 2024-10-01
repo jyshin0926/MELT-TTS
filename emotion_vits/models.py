@@ -4,7 +4,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from ..one_peace.models import from_pretrained
+import os
 import commons
 import modules
 import attentions
@@ -13,6 +13,11 @@ import monotonic_align
 from torch.nn import Conv1d, ConvTranspose1d, AvgPool1d, Conv2d
 from torch.nn.utils import weight_norm, remove_weight_norm, spectral_norm
 from commons import init_weights, get_padding
+import sys
+sys.path.append(os.path.abspath('/workspace/jaeyoung/StoryTeller/ONE-PEACE'))
+from one_peace.models import from_pretrained
+
+
 
 # TODO:: DurationPredictor ?
 
@@ -171,51 +176,42 @@ class EmotionEncoder(nn.Module):
       audio_batch_size = 10  # Adjust based on your GPU capacity
 
       with torch.no_grad():
-        all_text_features = text_prompt
-        all_image_features = vision_prompt
-        all_audio_features = audio_prompt
-
-        for i in range(0, len(image_list), image_batch_size):
-            batch_image_list = image_list[i:i + image_batch_size]
-            src_images = model.process_image(batch_image_list)
-            batch_image_features = model.extract_image_features(src_images)
-            all_image_features.append(batch_image_features)
-        vision_features = torch.cat(all_image_features, dim=0)        
-        
-        for i in range(0, len(audio_list), audio_batch_size):
-            batch_audio_list = audio_list[i:i + audio_batch_size]
-            src_audios, audio_padding_masks = model.process_audio(batch_audio_list)
-            batch_audio_features = model.extract_audio_features(src_audios, audio_padding_masks)
-            all_audio_features.append(batch_audio_features)
-        audio_features = torch.cat(all_audio_features, dim=0)
-
-        # Process text in batches
-        for i in range(0, len(text_queries), text_batch_size):
+        if text_prompt is not None:
+          all_text_features = text_prompt
+          for i in range(0, len(text_queries), text_batch_size):
             batch_text_queries = text_queries[i:i + text_batch_size]
             text_tokens = model.process_text(batch_text_queries)
             batch_text_features = model.extract_text_features(text_tokens)
             all_text_features.append(batch_text_features)
-        text_features = torch.cat(all_text_features, dim=0)
-
+          text_features = torch.cat(all_text_features, dim=0)
+        else:
+          text_features = None
+        
+        
+        if vision_prompt is not None:
+          all_image_features = vision_prompt
+          for i in range(0, len(image_list), image_batch_size):
+              batch_image_list = image_list[i:i + image_batch_size]
+              src_images = model.process_image(batch_image_list)
+              batch_image_features = model.extract_image_features(src_images)
+              all_image_features.append(batch_image_features)
+          vision_features = torch.cat(all_image_features, dim=0)        
+        else:
+          vision_features = None
+        
+        if audio_prompt is not None:
+          all_audio_features = audio_prompt
+          for i in range(0, len(audio_list), audio_batch_size):
+              batch_audio_list = audio_list[i:i + audio_batch_size]
+              src_audios, audio_padding_masks = model.process_audio(batch_audio_list)
+              batch_audio_features = model.extract_audio_features(src_audios, audio_padding_masks)
+              all_audio_features.append(batch_audio_features)
+          audio_features = torch.cat(all_audio_features, dim=0)
+        else:
+          audio_features = None
+          
         # Compute similarity scores between all text features and all audio features
         # similarity_scores = torch.matmul(all_audio_features, all_text_features.T)
-
-      
-      
-      # if text_prompt is not None:
-      #   text_features = self.vision_model.text_encoder(text_prompt) # text_encoder -> 수정 필요
-      # else:
-      #   text_features = None
-
-      # if vision_prompt is not None:
-      #   vision_features = self.vision_model.encoder(text_prompt, vision_prompt) # vision_encoder -> 수정 필요
-      # else:
-      #   vision_features = None
-
-      # if audio_prompt is not None:
-      #   audio_features = self.audio_model.audio_encoder(text_prompt, audio_prompt)
-      # else:
-      #   audio_features = None  
 
       # # combine features (text and vision prompts) (feature fusion - attention network?)
       if text_features is not None and vision_features is not None and audio_features is not None:
@@ -227,7 +223,7 @@ class EmotionEncoder(nn.Module):
       elif audio_features is not None:
         emotion_emb = audio_features
       else:
-        raise ValueError("Either text_prompt or vision_prompt must be provided")  
+        raise ValueError("text_prompt, vision_prompt or audio_prompt must be provided")  
 
       return emotion_emb
 

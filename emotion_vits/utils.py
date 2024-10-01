@@ -10,6 +10,7 @@ import numpy as np
 from scipy.io.wavfile import read
 import soundfile as sf
 import torch
+import torchaudio
 
 MATPLOTLIB_FLAG = False
 
@@ -294,9 +295,7 @@ def load_filepaths_and_text(datasets: HParams):
     metadata['path'] = metadata['audiopath']
     metadata['text'] = metadata['text'].apply(lambda text:text.strip("{}"))
     metadata['speaker_id'] = metadata['speaker_name'].apply(lambda name:speaker_id[name])
-    
-    # TODO:: text prompt
-    
+        
     if 'vison_path' in metadata.columns:
       metadata['vision_path' == metadata['vision_path'].apply(lambda vp: vp if pd.notnull(vp) else "")]
     else:

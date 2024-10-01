@@ -138,7 +138,7 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
 
   net_g.train()
   net_d.train()
-  for batch_idx, (x, x_lengths, spec, spec_lengths, y, y_lengths, speakers, vision_prompt, text_prompt) in enumerate(train_loader):
+  for batch_idx, (x, x_lengths, spec, spec_lengths, y, y_lengths, speakers, text_prompt, vision_prompt, audio_prompt) in enumerate(train_loader):
     x, x_lengths = x.cuda(rank, non_blocking=True), x_lengths.cuda(rank, non_blocking=True)
     spec, spec_lengths = spec.cuda(rank, non_blocking=True), spec_lengths.cuda(rank, non_blocking=True)
     y, y_lengths = y.cuda(rank, non_blocking=True), y_lengths.cuda(rank, non_blocking=True)

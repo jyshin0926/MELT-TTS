@@ -53,9 +53,6 @@
     "cleaned_text": false
   },
   "model": {
-    "vision_model_path":"/workspace/jaeyoung/checkpoints/one_peace_fusion/vl_txt_updagte_0923.pt",
-    "audio_model_path":"/workspace/jaeyoung/checkpoints/one_peace/esd_mmstts_al_0917/checkpoint_best.pt",
-    "emotion_classes":["neutral","happy","angry","sad","surprised", "contempt", "disgusted", "fear"],
     "inter_channels": 192,
     "hidden_channels": 192,
     "filter_channels": 768,
@@ -71,6 +68,9 @@
     "upsample_kernel_sizes": [16,16,4,4],
     "n_layers_q": 3,
     "use_spectral_norm": false,
-    "gin_channels": 256
+    "gin_channels": 256,
+    "vision_model_path":"/workspace/jaeyoung/checkpoints/one_peace_fusion/vl_txt_updagte_0923.pt",
+    "audio_model_path":"/workspace/jaeyoung/checkpoints/one_peace/esd_mmstts_al_0917/checkpoint_best.pt",
+    "emotion_classes":["neutral","happy","angry","sad","surprised", "contempt", "disgusted", "fear"]
   }
 }
