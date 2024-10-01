@@ -212,7 +212,6 @@ class EmotionEncoder(nn.Module):
       # else:
       #   vision_features = None
 
-      # # TODO:: audio prompt???
       # if audio_prompt is not None:
       #   audio_features = self.audio_model.audio_encoder(text_prompt, audio_prompt)
       # else:
@@ -633,7 +632,7 @@ class SynthesizerTrn(nn.Module):
 
     x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
     
-    emotion_emb = self.emotion_enc(text_prompt=text_prompt, vision_prompt=vision_prompt, audio_prompt=audio_prompt) # TODO:: correct vision tensor dimensions
+    emotion_emb = self.emotion_enc(text_prompt=text_prompt, vision_prompt=vision_prompt, audio_prompt=audio_prompt)
     emotion_dict = self.emotion_classifier(emotion_emb)
     modulated_emotion_emb = self.emotion_intensity(emotion_emb, emotion_dict)
     

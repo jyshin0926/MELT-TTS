@@ -88,7 +88,6 @@ def run(rank, n_gpus, hps):
       hps.data.filter_length // 2 + 1,
       hps.train.segment_size // hps.data.hop_length,
       n_speakers=hps.data.n_speakers,
-      
       **hps.model).cuda(rank)
   net_d = MultiPeriodDiscriminator(hps.model.use_spectral_norm).cuda(rank)
   optim_g = torch.optim.AdamW(
@@ -153,8 +152,9 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
     with autocast(enabled=hps.train.fp16_run):
       y_hat, l_length, attn, ids_slice, x_mask, z_mask,\
       (z, z_p, m_p, logs_p, m_q, logs_q) = net_g(x, x_lengths, spec, spec_lengths, speakers,
-                                                 vision_prompt=vision_prompt,
-                                                 text_prompt=text_prompt)
+                                                 text_prompt=text_prompt,
+                                                 vision_prompt=vision_prompt,  
+                                                 audio_prompt=audio_prompt)
 
       mel = spec_to_mel_torch(
           spec, 
@@ -238,8 +238,9 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
 
       if global_step % hps.train.eval_interval == 0:
         evaluate(hps, net_g, eval_loader, writer_eval,
+                 text_prompt=text_prompt,
                  vision_prompt=vision_prompt,
-                 text_prompt=text_prompt)
+                 audio_prompt=audio_prompt)
         utils.save_checkpoint(net_g, optim_g, hps.train.learning_rate, epoch, os.path.join(hps.model_dir, "G_{}.pth".format(global_step)))
         utils.save_checkpoint(net_d, optim_d, hps.train.learning_rate, epoch, os.path.join(hps.model_dir, "D_{}.pth".format(global_step)))
     global_step += 1
