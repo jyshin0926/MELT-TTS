@@ -663,7 +663,7 @@ class SynthesizerTrn(nn.Module):
     return o, attn, y_mask, (z, z_p, m_p, logs_p)
 
   # TODO:: combine emotion embeddings with speaker embeddings? disentagle? 일단 combine
-  def voice_conversion(self, y, y_lengths, sid_src, sid_tgt, vision_prompt=None):
+  def voice_conversion(self, y, y_lengths, sid_src, sid_tgt, text_prompt=None, vision_prompt=None):
     assert self.n_speakers > 0, "n_speakers have to be larger than 0."
     g_src = self.emb_g(sid_src).unsqueeze(-1)
     g_tgt = self.emb_g(sid_tgt).unsqueeze(-1)
