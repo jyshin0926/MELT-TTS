@@ -4,6 +4,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from ..one_peace.models import from_pretrained
 import commons
 import modules
 import attentions
@@ -135,59 +136,99 @@ class DurationPredictor(nn.Module):
 # TODO::EmotionEncoder (for emotion feature extraction)
 class EmotionEncoder(nn.Module):
   def __init__(self,vision_model_path, audio_model_path):
+
     super(EmotionEncoder, self).__init__()
-    self.vision_model = torch.load(vision_model_path, map_location='cpu')
-    self.vision_model.eval() # set to evaluation mode?
-    # for param in self.vision_model.parameters():
-    for param in self.vision_model['model'].items():
-      param.requires_grad = False # freeze vision model parameters
+    # self.vision_model = torch.load(vision_model_path, map_location='cpu')
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    self.vision_model = from_pretrained(
+        model_name_or_path="/workspace/jaeyoung/checkpoints/one_peace_fusion/vl_txt_updagte_0923.pt",
+        model_type="one_peace_retrieval",
+        device=device,
+        dtype="float16"
+    )
     
-    self.audio_model = torch.load(audio_model_path, map_location='cpu')
-    self.audio_model.eval()
-    for param in self.audio_model['model'].items():
-      param.requires_grad = False # freeze audio model parameters
-      
-          
+    self.audio_model = from_pretrained(
+        model_name_or_path="/workspace/jaeyoung/checkpoints/one_peace/esd_mmstts_al_0917/checkpoint_best.pt",
+        model_type="one_peace_retrieval",
+        device=device,
+        dtype="float16"
+    )
+    
   def forward(self, text_prompt=None, vision_prompt=None, audio_prompt=None):
       """
       Extracts and combines features from text and vision prompts.
 
       Args:
-          text_prompt (str): Text description, e.g., "She says with her beautiful smile."
-          vision_prompt (str): Path to the face image file, e.g., "image1.jpg".
-          audio_prompt (str, optional): Path to the audio file, e.g., "audio1.wav".
+      text_prompt (str): Text description, e.g., "She says with her beautiful smile."
+      vision_prompt (str): Path to the face image file, e.g., "image1.jpg".
+      audio_prompt (str, optional): Path to the audio file, e.g., "audio1.wav".
 
       Returns:
-          torch.Tensor: Combined emotion embedding.
-      """
-      
-    if text_prompt is not None:
-      text_features = self.vision_model.text_encoder(text_prompt) # text_encoder -> 수정 필요
-    else:
-      text_features = None
-    
-    if vision_prompt is not None:
-      vision_features = self.vision_model.encoder(text_prompt, vision_prompt) # vision_encoder -> 수정 필요
-    else:
-      vision_features = None
-  
-    # TODO:: audio prompt???
-    if audio_prompt is not None:
-      audio_features = self.audio_model.audio_encoder(text_prompt, audio_prompt)
-    else:
-      audio_features = None  
-      
-    # combine features (text and vision prompts) (feature fusion - attention network?)
-    if text_features is not None and vision_features is not None:
-      emotion_emb = torch.cat([text_features, vision_features], dim=-1)
-    elif text_features is not None:
-      emotion_emb = text_features
-    elif vision_features is not None:
-      emotion_emb = vision_features
-    else:
-      raise ValueError("Either text_prompt or vision_prompt must be provided")  
+      torch.Tensor: Combined emotion embedding.
+      """      
+      text_batch_size = 50   # Adjust based on your GPU capacity
+      vision_batch_size = 10  # Adjust based on your GPU capacity
+      audio_batch_size = 10  # Adjust based on your GPU capacity
 
-    return emotion_emb
+      with torch.no_grad():
+        all_text_features = text_prompt
+        all_image_features = vision_prompt
+        all_audio_features = audio_prompt
+
+        for i in range(0, len(image_list), image_batch_size):
+            batch_image_list = image_list[i:i + image_batch_size]
+            src_images = model.process_image(batch_image_list)
+            batch_image_features = model.extract_image_features(src_images)
+            all_image_features.append(batch_image_features)
+        all_image_features = torch.cat(all_image_features, dim=0)        
+        
+        for i in range(0, len(audio_list), audio_batch_size):
+            batch_audio_list = audio_list[i:i + audio_batch_size]
+            src_audios, audio_padding_masks = model.process_audio(batch_audio_list)
+            batch_audio_features = model.extract_audio_features(src_audios, audio_padding_masks)
+            all_audio_features.append(batch_audio_features)
+        all_audio_features = torch.cat(all_audio_features, dim=0)
+
+        # Process text in batches
+        for i in range(0, len(text_queries), text_batch_size):
+            batch_text_queries = text_queries[i:i + text_batch_size]
+            text_tokens = model.process_text(batch_text_queries)
+            batch_text_features = model.extract_text_features(text_tokens)
+            all_text_features.append(batch_text_features)
+        all_text_features = torch.cat(all_text_features, dim=0)
+
+        # Compute similarity scores between all text features and all audio features
+        # similarity_scores = torch.matmul(all_audio_features, all_text_features.T)
+
+      
+      
+      # if text_prompt is not None:
+      #   text_features = self.vision_model.text_encoder(text_prompt) # text_encoder -> 수정 필요
+      # else:
+      #   text_features = None
+
+      # if vision_prompt is not None:
+      #   vision_features = self.vision_model.encoder(text_prompt, vision_prompt) # vision_encoder -> 수정 필요
+      # else:
+      #   vision_features = None
+
+      # # TODO:: audio prompt???
+      # if audio_prompt is not None:
+      #   audio_features = self.audio_model.audio_encoder(text_prompt, audio_prompt)
+      # else:
+      #   audio_features = None  
+
+      # # combine features (text and vision prompts) (feature fusion - attention network?)
+      # if text_features is not None and vision_features is not None:
+      #   emotion_emb = torch.cat([text_features, vision_features], dim=-1)
+      # elif text_features is not None:
+      #   emotion_emb = text_features
+      # elif vision_features is not None:
+      #   emotion_emb = vision_features
+      # else:
+      #   raise ValueError("Either text_prompt or vision_prompt must be provided")  
+
+      return emotion_emb
 
 class EmotionClassifierModule(nn.Module):
   def __init__(self, emotion_classes, input_size):
@@ -525,12 +566,16 @@ class SynthesizerTrn(nn.Module):
     upsample_rates, 
     upsample_initial_channel, 
     upsample_kernel_sizes,
-    n_speakers=0,
+    n_speakers,
+
+    vision_model_path,
+    audio_model_path,
+    emotion_classes,
     gin_channels=0,
+    # vision_model_path='/workspace/jaeyoung/checkpoints/one_peace_fusion/vl_txt_updagte_0923.pt',
+    # audio_model_path='/workspace/jaeyoung/checkpoints/one_peace/esd_mmstts_al_0917/checkpoint_best.pt',
+    # emotion_classes=['neutral','happy','angry','sad','surprised', 'contempt', 'disgusted', 'fear'],
     use_sdp=True,
-    vision_model_path='/workspace/jaeyoung/checkpoints/one_peace_fusion/vl_txt_updagte_0923.pt',
-    audio_model_path='/workspace/jaeyoung/checkpoints/one_peace/esd_mmstts_al_0917/checkpoint_best.pt',
-    emotion_classes=['neutral','happy','angry','sad','surprised', 'contempt', 'disgusted', 'fear'],
     **kwargs):
 
     super().__init__()
@@ -552,6 +597,9 @@ class SynthesizerTrn(nn.Module):
     self.segment_size = segment_size
     self.n_speakers = n_speakers
     self.gin_channels = gin_channels
+    self.vision_model_path = vision_model_path
+    self.audio_model_path = audio_model_path
+    self.emotion_classes = emotion_classes
 
     self.use_sdp = use_sdp
 
@@ -581,11 +629,11 @@ class SynthesizerTrn(nn.Module):
     if n_speakers > 1:
       self.emb_g = nn.Embedding(n_speakers, gin_channels)
 
-  def forward(self, x, x_lengths, y, y_lengths, sid=None, vision_prompt=None):
+  def forward(self, x, x_lengths, y, y_lengths, sid=None, text_prompt=None, vision_prompt=None, audio_prompt=None):
 
     x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
     
-    emotion_emb = self.emotion_enc(text_prompt=x, vision_prompt=vision_prompt) # TODO:: check text_prompt (x (len(symbol)) -> raw text), correct vision tensor dimensions
+    emotion_emb = self.emotion_enc(text_prompt=text_prompt, vision_prompt=vision_prompt, audio_prompt=audio_prompt) # TODO:: correct vision tensor dimensions
     emotion_dict = self.emotion_classifier(emotion_emb)
     modulated_emotion_emb = self.emotion_intensity(emotion_emb, emotion_dict)
     
@@ -632,7 +680,7 @@ class SynthesizerTrn(nn.Module):
   def infer(self, x, x_lengths, sid=None, noise_scale=1, length_scale=1, noise_scale_w=1., max_len=None, vision_prompt=None):
     x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
     
-    emotion_emb = self.emotion_enc(text_prompt=x, vision_prompt=vision_prompt)
+    emotion_emb = self.emotion_enc(text_prompt=x, vision_prompt=vision_prompt, audio_prompt=audio_prompt)
     emotion_dict = self.emotion_classifier(emotion_emb)
     modulated_emotion_emb = self.emotion_intensity(emotion_emb, emotion_dict)
     
@@ -668,7 +716,7 @@ class SynthesizerTrn(nn.Module):
     g_src = self.emb_g(sid_src).unsqueeze(-1)
     g_tgt = self.emb_g(sid_tgt).unsqueeze(-1)
 
-    emotion_emb_src = self.emotion_enc(text_prompt=None, vision_prompt=vision_prompt)
+    emotion_emb_src = self.emotion_enc(text_prompt=text_prompt, vision_prompt=vision_prompt, audio_prompt=audio_prompt)
     emotion_dict_src = self.emotion_classifier(emotion_emb_src)
     modulated_emotion_emb_src = self.emotion_intensity(emotion_emb_src, emotion_dict_src)
     modulated_emotion_emb_src = torch.cat([modulated_emotion_emb_src, g_src], dim=-1)
@@ -677,7 +725,7 @@ class SynthesizerTrn(nn.Module):
     z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=modulated_emotion_emb_src)
     z_p = self.flow(z, y_mask, g=modulated_emotion_emb_src)
     
-    emotion_emb_tgt = self.emotion_enc(text_prompt=None, vision_prompt=vision_prompt)
+    emotion_emb_tgt = self.emotion_enc(text_prompt=text_prompt, vision_prompt=vision_prompt, audio_prompt=audio_prompt)
     emotion_dict_tgt = self.emotion_classifier(emotion_emb_tgt)
     modulated_emotion_emb_tgt = self.emotion_intensity(emotion_emb_tgt, emotion_dict_tgt)
     modulated_emotion_emb_tgt = torch.cat([modulated_emotion_emb_tgt, g_tgt], dim=-1)

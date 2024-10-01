@@ -1,5 +1,6 @@
 import os
 import glob
+import pandas as pd
 import sys
 import argparse
 import logging
@@ -18,10 +19,10 @@ logger = logging
 
 def get_hparams(init=True):
   parser = argparse.ArgumentParser()
-  parser.add_argument('-c', '--config', type=str, default="./configs/esd_mm.json",
+  parser.add_argument('-c', '--config', type=str, default="/workspace/jaeyoung/StoryTeller/emotion_vits/configs/esd_mm.json",
                       help='JSON file for configuration')
-  parser.add_argument('-m', '--model', type=str, required=True,
-                      default="/workspace/jaeyoung/checkpoint/VITS/0926_model"
+  parser.add_argument('-m', '--model', type=str,
+                      default="/workspace/jaeyoung/checkpoint/VITS/1001_model",
                       help='Model name')
   
   args = parser.parse_args()
@@ -296,19 +297,23 @@ def load_filepaths_and_text(datasets: HParams):
     
     # TODO:: text prompt
     
-    if 'viison_path' in metadata.columns:
-      metadata['vision_path' = metadata['vision_path'].apply(lambda vp: vp if pd.notnull(vp) else "")]
+    if 'vison_path' in metadata.columns:
+      metadata['vision_path' == metadata['vision_path'].apply(lambda vp: vp if pd.notnull(vp) else "")]
     else:
       metadata['vision_path'] = ""
+    if 'caption' in metadata.columns:
+      metadata['caption' == metadata['caption'].apply(lambda vp: vp if pd.notnull(vp) else "")]
+    else:
+      metadata['caption'] = ""
     
-    # dset.extend(metadata[['path','speker_id', 'text', 'vision_path']].values.tolist())
-    for _, row in metadata.iterrows():
-      dset.append(
-        row['path'],
-        row['speaker_id'],
-        row['text'],
-        row['vision_path']
-      )
+    dset.extend(metadata[['path','speaker_id', 'text', 'vision_path', 'caption']].values.tolist())
+    # for _, row in metadata.iterrows():
+    #   dset.append(
+    #     row['path'],
+    #     row['speaker_id'],
+    #     row['text'],
+    #     row['vision_path']
+    #   )
 
   return dset
 

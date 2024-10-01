@@ -4,6 +4,9 @@ import random
 import numpy as np
 import torch
 import torch.utils.data
+from tqdm import tqdm
+import gzip
+import pickle
 
 import commons 
 from mel_processing import spectrogram_torch
@@ -38,25 +41,25 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         # It's assumed that audiopaths_sid_text is a list of lists with:
         # [audiopath, sid, text, vision_path, text_prompt]
         # If 'vision_path' and 'text_prompt' are not present, handle appropriately.
-        self.audiopaths_sid_text = self._ensure_prompt_fields(self.audiopaths_sid_text)
+        # self.audiopaths_sid_text = self._ensure_prompt_fields(self.audiopaths_sid_text)
         
         random.seed(1234)
         random.shuffle(self.audiopaths_sid_text)
         self._filter()
 
-    def _ensure_prompt_fields(self, data):
-        """
-        Ensure that each data entry has 'vision_path' and 'text_prompt'.
-        If not, append empty strings or appropriate default values.
-        """
-        for entry in data:
-            if len(entry) < 5:
-                # Append empty string for 'text_prompt'
-                entry.append("")  # text_prompt
-            if len(entry) < 6:
-                # Append empty string for 'vision_path'
-                entry.append("")  # vision_path
-        return data
+    # def _ensure_prompt_fields(self, data):
+    #     """
+    #     Ensure that each data entry has 'vision_path' and 'text_prompt'.
+    #     If not, append empty strings or appropriate default values.
+    #     """
+    #     for entry in data:
+    #         if len(entry) < 5:
+    #             # Append empty string for 'text_prompt'
+    #             entry.append("")  # text_prompt
+    #         if len(entry) < 6:
+    #             # Append empty string for 'vision_path'
+    #             entry.append("")  # vision_path
+    #     return data
 
 
     def _filter(self):
@@ -64,10 +67,10 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         Filter text & store spec lengths
         """
 
-        pkl_path = "/workspace/jaeyoung/speech/vctk"
+        pkl_path = "/workspace/jaeyoung/speech/emo_text"
 
         os.makedirs(pkl_path, exist_ok=True)
-        audio_sid_txt_pkl = f"{pkl_path}/vctk_sid_txt.pkl"
+        audio_sid_txt_pkl = f"{pkl_path}/emo_sid_txt.pkl"
         len_pkl = f"{pkl_path}/lengths.pkl"
         if os.path.exists(audio_sid_txt_pkl):
             with gzip.open(audio_sid_txt_pkl, "rb") as f:
@@ -79,9 +82,9 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         else:
             audiopaths_sid_text_new = []
             lengths = []
-            for audiopath, sid, text in tqdm(self.audiopaths_sid_text):
+            for audiopath, sid, text, vision_path, caption in tqdm(self.audiopaths_sid_text):
                 if self.min_text_len <= len(text) and len(text) <= self.max_text_len:
-                    audiopaths_sid_text_new.append([audiopath, sid, text])
+                    audiopaths_sid_text_new.append([audiopath, sid, text, vision_path, caption])
                     lengths.append(os.path.getsize(audiopath) // (2 * self.hop_length))
                 else:
                     continue
@@ -98,7 +101,7 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
     def get_audio_text_speaker_pair(self, audiopath_sid_text):
         # separate filename, speaker_id and text
         # audiopath, sid, text, vision_path, text_prompt = audiopath_sid_text[0], audiopath_sid_text[1], audiopath_sid_text[2]
-        audiopath, sid, text, vision_prompt, text_prompt = audiopath_sid_text
+        audiopath, sid, text, vision_prompt, text_prompt = audiopath_sid_text[0], audiopath_sid_text[1], audiopath_sid_text[2], audiopath_sid_text[3], audiopath_sid_text[4]
         text = self.get_text(text)
         spec, wav = self.get_audio(audiopath, sid)
         sid = self.get_sid(sid)
