@@ -180,14 +180,14 @@ class EmotionEncoder(nn.Module):
             src_images = model.process_image(batch_image_list)
             batch_image_features = model.extract_image_features(src_images)
             all_image_features.append(batch_image_features)
-        all_image_features = torch.cat(all_image_features, dim=0)        
+        vision_features = torch.cat(all_image_features, dim=0)        
         
         for i in range(0, len(audio_list), audio_batch_size):
             batch_audio_list = audio_list[i:i + audio_batch_size]
             src_audios, audio_padding_masks = model.process_audio(batch_audio_list)
             batch_audio_features = model.extract_audio_features(src_audios, audio_padding_masks)
             all_audio_features.append(batch_audio_features)
-        all_audio_features = torch.cat(all_audio_features, dim=0)
+        audio_features = torch.cat(all_audio_features, dim=0)
 
         # Process text in batches
         for i in range(0, len(text_queries), text_batch_size):
@@ -195,7 +195,7 @@ class EmotionEncoder(nn.Module):
             text_tokens = model.process_text(batch_text_queries)
             batch_text_features = model.extract_text_features(text_tokens)
             all_text_features.append(batch_text_features)
-        all_text_features = torch.cat(all_text_features, dim=0)
+        text_features = torch.cat(all_text_features, dim=0)
 
         # Compute similarity scores between all text features and all audio features
         # similarity_scores = torch.matmul(all_audio_features, all_text_features.T)
@@ -218,14 +218,16 @@ class EmotionEncoder(nn.Module):
       #   audio_features = None  
 
       # # combine features (text and vision prompts) (feature fusion - attention network?)
-      # if text_features is not None and vision_features is not None:
-      #   emotion_emb = torch.cat([text_features, vision_features], dim=-1)
-      # elif text_features is not None:
-      #   emotion_emb = text_features
-      # elif vision_features is not None:
-      #   emotion_emb = vision_features
-      # else:
-      #   raise ValueError("Either text_prompt or vision_prompt must be provided")  
+      if text_features is not None and vision_features is not None and audio_features is not None:
+        emotion_emb = torch.cat([text_features, vision_features, audio_features], dim=-1)
+      elif text_features is not None:
+        emotion_emb = text_features
+      elif vision_features is not None:
+        emotion_emb = vision_features
+      elif audio_features is not None:
+        emotion_emb = audio_features
+      else:
+        raise ValueError("Either text_prompt or vision_prompt must be provided")  
 
       return emotion_emb
 

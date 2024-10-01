@@ -37,30 +37,9 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         self.min_text_len = getattr(hparams, "min_text_len", 1)
         self.max_text_len = getattr(hparams, "max_text_len", 190)
         
-        # Ensure that the dataset includes 'vision_path' and 'text_prompt'
-        # It's assumed that audiopaths_sid_text is a list of lists with:
-        # [audiopath, sid, text, vision_path, text_prompt]
-        # If 'vision_path' and 'text_prompt' are not present, handle appropriately.
-        # self.audiopaths_sid_text = self._ensure_prompt_fields(self.audiopaths_sid_text)
-        
         random.seed(1234)
         random.shuffle(self.audiopaths_sid_text)
         self._filter()
-
-    # def _ensure_prompt_fields(self, data):
-    #     """
-    #     Ensure that each data entry has 'vision_path' and 'text_prompt'.
-    #     If not, append empty strings or appropriate default values.
-    #     """
-    #     for entry in data:
-    #         if len(entry) < 5:
-    #             # Append empty string for 'text_prompt'
-    #             entry.append("")  # text_prompt
-    #         if len(entry) < 6:
-    #             # Append empty string for 'vision_path'
-    #             entry.append("")  # vision_path
-    #     return data
-
 
     def _filter(self):
         """
@@ -100,15 +79,14 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
 
     def get_audio_text_speaker_pair(self, audiopath_sid_text):
         # separate filename, speaker_id and text
-        # audiopath, sid, text, vision_path, text_prompt = audiopath_sid_text[0], audiopath_sid_text[1], audiopath_sid_text[2]
         audiopath, sid, text, vision_prompt, text_prompt = audiopath_sid_text[0], audiopath_sid_text[1], audiopath_sid_text[2], audiopath_sid_text[3], audiopath_sid_text[4]
         text = self.get_text(text)
         spec, wav = self.get_audio(audiopath, sid)
         sid = self.get_sid(sid)
-        vision_prompt = self.get_vision_prompt(vision_prompt)
         text_prompt = self.get_text_prompt(text_prompt)
-        
-        # TODO:: implement prompt (vision, text)
+        vision_prompt = self.get_vision_prompt(vision_prompt)
+        audio_prompt = self.get_audio_prompt(audio_prompt)
+
         return (text, spec, wav, sid)
 
     def get_audio(self, filename, sid):
@@ -147,6 +125,8 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         sid = torch.LongTensor([int(sid)])
         return sid
     
+    def get_audio_prompt(self, audiopath):
+        return
     
     def get_vision_prompt(self, vision_prompt):
         if vision_prompt != "" and os.path.exists(vision_prompt):
