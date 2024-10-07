@@ -306,14 +306,6 @@ def load_filepaths_and_text(datasets: HParams):
       metadata['caption'] = ""
     
     dset.extend(metadata[['path','speaker_id', 'text', 'vision_path', 'caption']].values.tolist())
-    # for _, row in metadata.iterrows():
-    #   dset.append(
-    #     row['path'],
-    #     row['speaker_id'],
-    #     row['text'],
-    #     row['vision_path']
-    #   )
-
   return dset
 
 
