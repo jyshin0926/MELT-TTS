@@ -641,7 +641,6 @@ class SynthesizerTrn(nn.Module):
 
     if g is not None:
       modulated_emotion_emb = torch.cat([modulated_emotion_emb, g],dim=-1)
-      # modulated_emotion_emb = modulated_emotion_emb + g
     z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=modulated_emotion_emb)
     z_p = self.flow(z, y_mask, g=modulated_emotion_emb)
 
@@ -687,7 +686,6 @@ class SynthesizerTrn(nn.Module):
       g = None
     if g is not None:
       modulated_emotion_emb = torch.cat([modulated_emotion_emb, g], dim=-1)
-      # modulated_emotion_emb = modulated_emotion_emb + g
     if self.use_sdp:
       logw = self.dp(x, x_mask, g=modulated_emotion_emb, reverse=True, noise_scale=noise_scale_w)
     else:
@@ -717,7 +715,6 @@ class SynthesizerTrn(nn.Module):
     emotion_dict_src = self.emotion_classifier(emotion_emb_src)
     modulated_emotion_emb_src = self.emotion_intensity(emotion_emb_src, emotion_dict_src)
     modulated_emotion_emb_src = torch.cat([modulated_emotion_emb_src, g_src], dim=-1)
-    # modulated_emotion_emb_src = modulated_emotion_emb_src + g_src
 
     z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=modulated_emotion_emb_src)
     z_p = self.flow(z, y_mask, g=modulated_emotion_emb_src)
@@ -726,7 +723,6 @@ class SynthesizerTrn(nn.Module):
     emotion_dict_tgt = self.emotion_classifier(emotion_emb_tgt)
     modulated_emotion_emb_tgt = self.emotion_intensity(emotion_emb_tgt, emotion_dict_tgt)
     modulated_emotion_emb_tgt = torch.cat([modulated_emotion_emb_tgt, g_tgt], dim=-1)
-    # modulated_emotion_emb_tgt = modulated_emotion_emb_tgt + g_tgt
     
     z_hat = self.flow(z_p, y_mask, g=modulated_emotion_emb_tgt, reverse=True)
     o_hat = self.dec(z_hat * y_mask, g=modualted_emotion_emb_tgt)
