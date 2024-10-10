@@ -5,7 +5,6 @@ task:
   _name: image_text_retrieval
   data: /workspace/jaeyoung/StoryTeller/merged_caption_MMTTS.csv
   valid_data: /workspace/jaeyoung/StoryTeller/valid1000_merged_caption_MMTTS.csv
-  # selected_cols: image_id,image,caption
   selected_cols: filename,caption1,caption2,caption3,caption4,caption5
   patch_image_size: 256
   valid_file: /workspace/jaeyoung/StoryTeller/valid1000_merged_caption_MMTTS.csv

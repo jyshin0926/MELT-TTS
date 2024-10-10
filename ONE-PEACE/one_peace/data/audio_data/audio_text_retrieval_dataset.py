@@ -28,7 +28,6 @@ class AudioTextRetrievalDataset(BaseDataset):
 
     def __getitem__(self, index, item_tuple=None):
         item_tuple = self.dataset[index] if item_tuple is None else item_tuple
-        # uniq_id, audio, caption, duration = item_tuple
         audiopath,caption1,caption2,caption3,caption4,caption5 = item_tuple
         
         li = os.path.basename(audiopath).replace('.wav','').split('_')
