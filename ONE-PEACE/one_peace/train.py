@@ -333,11 +333,13 @@ def validate_and_save(
         )
 
         # Save checkpoint more flexibly when close to max_update
-    close_to_max = num_updates >= max_update - 11  # Adjust this threshold as needed
+    close_to_max = num_updates >= max_update - 4  # Adjust this threshold as needed
+    # close_to_max = num_updates >= max_update - 11  # Adjust this threshold as needed
+    # close_to_max = num_updates >= max_update - 1  # Adjust this threshold as needed
     do_save = (
         (end_of_epoch and epoch_itr.epoch % cfg.checkpoint.save_interval == 0)
         or should_stop
-        or close_to_max
+        # or close_to_max
         or (
             cfg.checkpoint.save_interval_updates > 0
             and num_updates > 0
