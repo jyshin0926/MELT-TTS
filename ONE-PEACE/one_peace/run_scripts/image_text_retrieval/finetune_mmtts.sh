@@ -2,7 +2,7 @@
 
 # The port for communication. Note that if you want to run multiple tasks on the same machine,
 # you need to specify different port numbers.
-export MASTER_PORT=6081
+export MASTER_PORT=6080
 export CUDA_VISIBLE_DEVICES=0
 export GPUS_PER_NODE=1
 
@@ -10,7 +10,7 @@ config_dir=/workspace/jaeyoung/StoryTeller/ONE-PEACE/one_peace/run_scripts/image
 config_name=base
 data=/workspace/jaeyoung/StoryTeller/merged_caption_MMTTS.csv
 valid_data=/workspace/jaeyoung/StoryTeller/valid1000_merged_caption_MMTTS.csv
-max_epoch=15
+max_epoch=8
 lr=[7e-5]
 drop_path_rate=0.5
 

@@ -24,16 +24,16 @@ lr_scheduler:
   warmup_ratio: 0.1
 
 dataset:
-  batch_size: 32
+  batch_size: 16
   ensure_equal_batch: true
 
 common:
   layer_decay: 0.9
 
 checkpoint:
-  restore_file: /workspace/jaeyoung/checkpoints/one-peace_pretrained.pt
+  restore_file: /workspace/jaeyoung/checkpoints/onepeace/one-peace_pretrained.pt
   # restore_file: /workspace/jaeyoung/checkpoints/one_peace/mmtts_vl_0907/checkpoint_best.pt
-  save_dir: /workspace/jaeyoung/checkpoints/one_peace/mmtts_vl_1009
+  save_dir: /workspace/jaeyoung/checkpoints/one_peace/mmtts_vl_1011
   # save_dir: /workspace/jaeyoung/checkpoints/one_peace/mmtts_vl_0907_lr2e-6
   best_checkpoint_metric: txt_r1
 

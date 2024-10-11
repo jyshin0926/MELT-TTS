@@ -145,6 +145,15 @@ class EmotionEncoder(nn.Module):
     super(EmotionEncoder, self).__init__()
     # self.vision_model = torch.load(vision_model_path, map_location='cpu')
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    
+    self.text_model = from_pretrained(
+        model_name_or_path="/workspace/jaeyoung/checkpoints/onepeace/esd_pretrained_al_1009/checkpoint_best.pt",
+        model_type="one_peace_retrieval",
+        device=device,
+        dtype="float16"
+    )
+    
+    
     self.vision_model = from_pretrained(
         model_name_or_path="/workspace/jaeyoung/checkpoints/one_peace_fusion/vl_txt_updagte_0923.pt",
         model_type="one_peace_retrieval",
@@ -153,7 +162,7 @@ class EmotionEncoder(nn.Module):
     )
     
     self.audio_model = from_pretrained(
-        model_name_or_path="/workspace/jaeyoung/checkpoints/one_peace/esd_mmstts_al_0917/checkpoint_best.pt",
+        model_name_or_path="/workspace/jaeyoung/checkpoints/onepeace/esd_pretrained_al_1009/checkpoint_best.pt",
         model_type="one_peace_retrieval",
         device=device,
         dtype="float16"
@@ -209,11 +218,9 @@ class EmotionEncoder(nn.Module):
           audio_features = torch.cat(all_audio_features, dim=0)
         else:
           audio_features = None
-          
-        # Compute similarity scores between all text features and all audio features
-        # similarity_scores = torch.matmul(all_audio_features, all_text_features.T)
 
-      # # combine features (text and vision prompts) (feature fusion - attention network?)
+
+      # TODO:: combine features (text and vision prompts) (feature fusion - cross attention network?)
       if text_features is not None and vision_features is not None and audio_features is not None:
         emotion_emb = torch.cat([text_features, vision_features, audio_features], dim=-1)
       elif text_features is not None:
@@ -236,7 +243,6 @@ class EmotionClassifierModule(nn.Module):
   def forward(self, emotion_emb):
     emotion_logits = self.classifier(emotion_emb)
     emotion_probs = F.softmax(emotion_logits, dim=-1)
-    # emotion_dict = {self.emotion_classes[i]: emotion_probs[0, i].item() for i in range(len(self.emotion_classes))}
     emotion_dicts = []
     for prob in emotion_probs:
       emotion_dict = {self.emotion_classes[i]: prob[i].item()
@@ -268,7 +274,6 @@ class EmotionIntensityModule(nn.Module):
       intensity_val = torch.clamp(intensity_val, self.min_intensity, self.max_intensity)
     else:
       intensity_val = sum([p for p in emotion_dict.values()])/len(emotion_dict)
-      # intensity_val = sum(emotion_dict.values()/len(emotion_dict))
     
     modulated_emotion_emb = combined_emotion_emb * intensity_val
     
@@ -375,21 +380,10 @@ class PosteriorEncoder(nn.Module):
     self.enc = modules.WN(hidden_channels, kernel_size, dilation_rate, n_layers, gin_channels=gin_channels)
     self.proj = nn.Conv1d(hidden_channels, out_channels * 2, 1)
     
-    if gin_channels != 0:
-      self.cond_speaker = nn.Conv1d(gin_channels, hidden_channels, 1)
-      self.cond_emotion = nn.Conv1d(gin_channels, hidden_channels, 1)
-
+    
   def forward(self, x, x_lengths, g=None):
     x_mask = torch.unsqueeze(commons.sequence_mask(x_lengths, x.size(2)), 1).to(x.dtype)
     x = self.pre(x) * x_mask
-    
-    # TODO:: separately handling speaker and emotion
-    if g is not None:
-      if 'speaker' in g:
-        x = x + self.cond_speker(g['speaker'])
-      if 'emotion' in g:
-        x = x + self.cond_emotion(g['emotion'])
-    
     x = self.enc(x, x_mask, g=g)
     stats = self.proj(x) * x_mask
     m, logs = torch.split(stats, self.out_channels, dim=1)
@@ -597,7 +591,6 @@ class SynthesizerTrn(nn.Module):
     self.vision_model_path = vision_model_path
     self.audio_model_path = audio_model_path
     self.emotion_classes = emotion_classes
-
     self.use_sdp = use_sdp
 
     self.enc_p = TextEncoder(n_vocab,
@@ -609,7 +602,6 @@ class SynthesizerTrn(nn.Module):
         kernel_size,
         p_dropout)
 
-    # TODO:: emotion module
     self.emotion_enc = EmotionEncoder(vision_model_path=vision_model_path, audio_model_path=audio_model_path)
     self.emotion_classifier = EmotionClassifierModule(emotion_classes=emotion_classes, input_size=768*2)
     self.emotion_intensity = EmotionIntensityModule(emotion_classes=emotion_classes, min_intensity=0.0, max_intensity=1.0)
@@ -704,8 +696,8 @@ class SynthesizerTrn(nn.Module):
     z = self.flow(z_p, y_mask, g=modulated_emotion_emb, reverse=True)
     o = self.dec((z * y_mask)[:,:,:max_len], g=modulated_emotion_emb)
     return o, attn, y_mask, (z, z_p, m_p, logs_p)
+  
 
-  # TODO:: combine emotion embeddings with speaker embeddings? disentagle? 일단 combine
   def voice_conversion(self, y, y_lengths, sid_src, sid_tgt, text_prompt=None, vision_prompt=None):
     assert self.n_speakers > 0, "n_speakers have to be larger than 0."
     g_src = self.emb_g(sid_src).unsqueeze(-1)

@@ -41,7 +41,6 @@ class ImageTextRetrievalDataset(BaseDataset):
         filename,caption1,caption2,caption3,caption4,caption5 = item_tuple
         li = filename.replace('.wav','').split('_')
         if li is not None:
-            # uniq_id = int(uniq_id) if isinstance(uniq_id, int) else uniq_id
             uniq_id = int(li[0][1:]+li[3]+li[4])
 
         image_dir = os.path.join('/workspace/jaeyoung/datasets/mm-tts-dataset/video_image_save', filename.replace('.wav',''))

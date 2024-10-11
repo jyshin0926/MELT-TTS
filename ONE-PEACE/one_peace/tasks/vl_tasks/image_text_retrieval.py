@@ -49,7 +49,6 @@ class ImageTextRetrievalTask(BaseTask):
 
         for index, row in data.iterrows():
             self.text_ids.append(index)   # DataFrame의 인덱스를 저장
-            # self.texts.append(row['caption1'])  # 'caption' 열의 값을 저장
             self.texts.append((row['caption1'],row['caption2'],row['caption3'],row['caption4'],row['caption5']))  # 'caption' 열의 값을 저장
         self.text_ids = torch.tensor(self.text_ids).cuda()
 
