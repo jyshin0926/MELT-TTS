@@ -321,7 +321,7 @@ def validate_and_save(
     # Stopping conditions (and an additional one based on validation loss later
     # on)
     should_stop = False
-    if num_updates >= max_update-1:
+    if num_updates >= max_update:
         should_stop = True
         logger.info(
             f"Stopping training due to "
@@ -329,30 +329,30 @@ def validate_and_save(
         )
 
         # Save checkpoint more flexibly when close to max_update
+    # close_to_max = num_updates >= max_update - 4 
     # close_to_max = num_updates >= max_update - 11
     close_to_max = num_updates >= max_update - 1  # Adjust this threshold as needed
     do_save = (
-        # (end_of_epoch and epoch_itr.epoch % cfg.checkpoint.save_interval == 0)
-        end_of_epoch
+        (end_of_epoch and epoch_itr.epoch % cfg.checkpoint.save_interval == 0)
         or should_stop
         # or close_to_max
-        # or (
-        #     cfg.checkpoint.save_interval_updates > 0
-        #     and num_updates > 0
-        #     and num_updates % cfg.checkpoint.save_interval_updates == 0
-        #     and num_updates >= cfg.dataset.validate_after_updates
+        or (
+            cfg.checkpoint.save_interval_updates > 0
+            and num_updates > 0
+            and num_updates % cfg.checkpoint.save_interval_updates == 0
+            and num_updates >= cfg.dataset.validate_after_updates
         )
-    # )
+    )
     do_validate = (
         (
             (not end_of_epoch and do_save)  # validate during mid-epoch saves
-            # or (end_of_epoch and epoch_itr.epoch % cfg.dataset.validate_interval == 0)
+            or (end_of_epoch and epoch_itr.epoch % cfg.dataset.validate_interval == 0)
             or should_stop
-            # or (
-            #     cfg.dataset.validate_interval_updates > 0
-            #     and num_updates > 0
-            #     and num_updates % cfg.dataset.validate_interval_updates == 0
-            # )
+            or (
+                cfg.dataset.validate_interval_updates > 0
+                and num_updates > 0
+                and num_updates % cfg.dataset.validate_interval_updates == 0
+            )
         )
         and not cfg.dataset.disable_validation
         and num_updates >= cfg.dataset.validate_after_updates

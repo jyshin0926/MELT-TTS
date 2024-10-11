@@ -31,8 +31,8 @@ common:
   layer_decay: 0.9
 
 checkpoint:
-  restore_file: /workspace/jaeyoung/checkpoints/onepeace/one-peace_pretrained.pt
-  # restore_file: /workspace/jaeyoung/checkpoints/one_peace/mmtts_vl_0907/checkpoint_best.pt
+  # restore_file: /workspace/jaeyoung/checkpoints/onepeace/one-peace_pretrained.pt
+  restore_file: /workspace/jaeyoung/checkpoints/one_peace/mmtts_vl_1009/checkpoint_best.pt
   save_dir: /workspace/jaeyoung/checkpoints/one_peace/mmtts_vl_1011
   # save_dir: /workspace/jaeyoung/checkpoints/one_peace/mmtts_vl_0907_lr2e-6
   best_checkpoint_metric: txt_r1
