@@ -82,12 +82,14 @@ def run(rank, n_gpus, hps):
         batch_size=hps.train.batch_size, pin_memory=True,
         drop_last=False, collate_fn=collate_fn)
 
-  # TODO:: text, vision, audio_prompt input 으로 주기
   net_g = SynthesizerTrn(
       len(symbols),
       hps.data.filter_length // 2 + 1,
       hps.train.segment_size // hps.data.hop_length,
       n_speakers=hps.data.n_speakers,
+      vision_model_path=hps.model.vision_model_path,
+      audio_model_path=hps.model.audio_model_path,
+      emotion_classes=hps.model.emotion_classes,
       **hps.model).cuda(rank)
   net_d = MultiPeriodDiscriminator(hps.model.use_spectral_norm).cuda(rank)
   optim_g = torch.optim.AdamW(
@@ -154,7 +156,7 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
 
     with autocast(enabled=hps.train.fp16_run):
       y_hat, l_length, attn, ids_slice, x_mask, z_mask,\
-      (z, z_p, m_p, logs_p, m_q, logs_q) = net_g(x, x_lengths, spec, spec_lengths, speakers,
+      (z, z_p, m_p, logs_p, m_q, logs_q), (gen_emo_emb, tgt_emo_emb) = net_g(x, x_lengths, spec, spec_lengths, speakers,
                                                  text_prompt=text_prompt,
                                                  vision_prompt=vision_prompt,  
                                                  audio_prompt=audio_prompt)

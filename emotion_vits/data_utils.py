@@ -4,6 +4,7 @@ import random
 import numpy as np
 import torch
 import torch.utils.data
+from torch.nn import functional as F
 from tqdm import tqdm
 import gzip
 import pickle
@@ -126,9 +127,35 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         sid = torch.LongTensor([int(sid)])
         return sid
     
-    def get_audio_prompt(self, audiopath):
-        # TODO:: batch size setting
-        # src_audios, audio_padding_masks = model
+    # TODO:: batch size setting
+    def get_audio_prompt(self, audio_prompt_path):
+        if audio_prompt_path != "" and os.path.exists(audio_prompt_path):
+            audio, sampling_rate = load_wav_to_torch(audio_prompt_path)
+            if sampling_rate != self.sampling_rate:
+                raise ValueError("{} SR doesn't match target {} SR".format(
+                    sampling_rate, self.sampling_rate))
+            audio_norm = audio / self.max_wav_value
+            audio_norm = audio_norm.unsqueeze(0)
+            # Compute spectrogram for audio_prompt
+            spec = spectrogram_torch(audio_norm, self.filter_length,
+                self.sampling_rate, self.hop_length, self.win_length,
+                center=False)
+            spec = torch.squeeze(spec, 0)
+            # Optionally, pad or slice spec to a fixed length
+            max_spec_len = 1000  # Example fixed length
+            if spec.size(1) > max_spec_len:
+                spec = spec[:, :max_spec_len]
+            else:
+                pad_size = max_spec_len - spec.size(1)
+                spec = F.pad(spec, (0, pad_size), "constant", 0)
+            return spec
+        else:
+            # Return a zero tensor with fixed spec dimensions
+            return torch.zeros(80, 1000)  # Assuming 80 mel channels and 1000 time steps
+
+        
+
+        
         return audiopath
     
     def get_vision_prompt(self, vision_prompt):
@@ -294,7 +321,6 @@ class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
         return buckets, num_samples_per_bucket
   
     def __iter__(self):
-      # deterministically shuffle based on epoch
       g = torch.Generator()
       g.manual_seed(self.epoch)
   

@@ -328,48 +328,64 @@ def validate_and_save(
             f"num_updates: {num_updates} >= max_update: {max_update}"
         )
 
-        # Save checkpoint more flexibly when close to max_update
-    # close_to_max = num_updates >= max_update - 4 
-    # close_to_max = num_updates >= max_update - 11
     close_to_max = num_updates >= max_update - 1  # Adjust this threshold as needed
     do_save = (
         (end_of_epoch and epoch_itr.epoch % cfg.checkpoint.save_interval == 0)
         or should_stop
-        # or close_to_max
-        or (
-            cfg.checkpoint.save_interval_updates > 0
-            and num_updates > 0
-            and num_updates % cfg.checkpoint.save_interval_updates == 0
-            and num_updates >= cfg.dataset.validate_after_updates
-        )
+    #     or (
+    #         cfg.checkpoint.save_interval_updates > 0
+    #         and num_updates > 0
+    #         and num_updates % cfg.checkpoint.save_interval_updates == 0
+    #         and num_updates >= cfg.dataset.validate_after_updates
+    #     )
     )
+    
     do_validate = (
-        (
-            (not end_of_epoch and do_save)  # validate during mid-epoch saves
-            or (end_of_epoch and epoch_itr.epoch % cfg.dataset.validate_interval == 0)
-            or should_stop
-            or (
-                cfg.dataset.validate_interval_updates > 0
-                and num_updates > 0
-                and num_updates % cfg.dataset.validate_interval_updates == 0
-            )
-        )
-        and not cfg.dataset.disable_validation
-        and num_updates >= cfg.dataset.validate_after_updates
+        (end_of_epoch and epoch_itr.epoch % cfg.dataset.validate_interval == 0)
+        or should_stop
     )
+    
+    # do_validate = (
+    #     (
+    #         (not end_of_epoch and do_save)  # validate during mid-epoch saves
+    #         or (end_of_epoch and epoch_itr.epoch % cfg.dataset.validate_interval == 0)
+    #         or should_stop
+    #         or (
+    #             cfg.dataset.validate_interval_updates > 0
+    #             and num_updates > 0
+    #             and num_updates % cfg.dataset.validate_interval_updates == 0
+    #         )
+    #     )
+    #     and not cfg.dataset.disable_validation
+    #     and num_updates >= cfg.dataset.validate_after_updates
+    # )
 
     # Validate
     valid_losses = [None]
-    if do_validate:
-        valid_losses = validate(cfg, trainer, task, epoch_itr, valid_subsets)
-
-    # Save checkpoint
-    if do_save or should_stop:
-        checkpoint_utils.save_checkpoint(
-            cfg.checkpoint, trainer, epoch_itr, valid_losses[0]
-        )
+    if do_save:
+        try:
+            logger.info("Saving checkpoint...")
+            checkpoint_utils.save_checkpoint(
+                cfg.checkpoint, trainer, epoch_itr, valid_losses[0]
+            )
+            logger.info("Checkpoint saved successfully.")
+        except Exception as e:
+            logger.error(f"Saving checkpoint failed: {e}")
 
     return valid_losses, should_stop
+    
+    
+    # valid_losses = [None]
+    # if do_validate:
+    #     valid_losses = validate(cfg, trainer, task, epoch_itr, valid_subsets)
+
+    # # Save checkpoint
+    # if do_save or should_stop:
+    #     checkpoint_utils.save_checkpoint(
+    #         cfg.checkpoint, trainer, epoch_itr, valid_losses[0]
+    #     )
+
+    # return valid_losses, should_stop
 
 
 def get_training_stats(stats: Dict[str, Any]) -> Dict[str, Any]:
@@ -387,7 +403,6 @@ def validate(
     """Evaluate the model on the validation set(s) and return the losses."""
 
     if cfg.dataset.fixed_validation_seed is not None:
-        # set fixed seed for every validation
         utils.set_torch_seed(cfg.dataset.fixed_validation_seed)
 
     valid_losses = []

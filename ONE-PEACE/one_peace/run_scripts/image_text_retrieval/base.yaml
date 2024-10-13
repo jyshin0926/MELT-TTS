@@ -4,10 +4,10 @@ default_yaml: /workspace/jaeyoung/StoryTeller/ONE-PEACE/one_peace/run_scripts/fi
 task:
   _name: image_text_retrieval
   data: /workspace/jaeyoung/StoryTeller/merged_caption_MMTTS.csv
-  valid_data: /workspace/jaeyoung/StoryTeller/valid1000_merged_caption_MMTTS.csv
+  valid_data: /workspace/jaeyoung/StoryTeller/valid1000_merged_caption_imgpath_MMTTS.csv
   selected_cols: filename,caption1,caption2,caption3,caption4,caption5
   patch_image_size: 256
-  valid_file: /workspace/jaeyoung/StoryTeller/valid1000_merged_caption_MMTTS.csv
+  valid_file: /workspace/jaeyoung/StoryTeller/valid1000_merged_caption_imgpath_MMTTS.csv
 
 criterion:
   _name: image_text_retrieval_criterion
@@ -31,12 +31,10 @@ common:
   layer_decay: 0.9
 
 checkpoint:
-  # restore_file: /workspace/jaeyoung/checkpoints/onepeace/one-peace_pretrained.pt
-  restore_file: /workspace/jaeyoung/checkpoints/one_peace/mmtts_vl_1009/checkpoint_best.pt
-  save_dir: /workspace/jaeyoung/checkpoints/one_peace/mmtts_vl_1011
+  restore_file: /workspace/jaeyoung/checkpoints/onepeace/one-peace_pretrained.pt
+  save_dir: /workspace/jaeyoung/checkpoints/onepeace/mmtts_vl_1013
   # save_dir: /workspace/jaeyoung/checkpoints/one_peace/mmtts_vl_0907_lr2e-6
   best_checkpoint_metric: txt_r1
-
 
 model:
   _name: one_peace_retrieval

@@ -37,7 +37,6 @@ class ImageTextRetrievalDataset(BaseDataset):
 
     def __getitem__(self, index, item_tuple=None):
         item_tuple = self.dataset[index] if item_tuple is None else item_tuple
-        # uniq_id, image, caption = item_tuple
         filename,caption1,caption2,caption3,caption4,caption5 = item_tuple
         li = filename.replace('.wav','').split('_')
         if li is not None:
