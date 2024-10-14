@@ -8,6 +8,8 @@ from torch.nn import functional as F
 from tqdm import tqdm
 import gzip
 import pickle
+from PIL import Image
+import torchvision.transforms as transforms
 
 import commons 
 from mel_processing import spectrogram_torch
@@ -42,6 +44,20 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         random.seed(1234)
         random.shuffle(self.audiopaths_sid_text)
         self._filter()
+        
+    def _ensure_prompt_fields(self, data):
+        """
+        Ensure that each data entry has 'vision_path' and 'text_prompt'.
+        If not, append empty strings or appropriate default values.
+        """
+        for entry in data:
+            if len(entry) < 5:
+                # Append empty string for 'text_prompt'
+                entry.append("")  # text_prompt
+            if len(entry) < 6:
+                # Append empty string for 'vision_path'
+                entry.append("")  # vision_path
+        return data
 
     def _filter(self):
         """
@@ -65,7 +81,7 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
             lengths = []
             for audiopath, sid, text, vision_path, caption in tqdm(self.audiopaths_sid_text):
                 if self.min_text_len <= len(text) and len(text) <= self.max_text_len:
-                    audiopaths_sid_text_new.append([audiopath, sid, text, vision_path, caption])
+                    audiopaths_sid_text_new.append([audiopath, sid, text, vision_path, caption])  # caption, vision_path 둘 다 한 데이터당 여러개이므로 random으로 보내야함
                     lengths.append(os.path.getsize(audiopath) // (2 * self.hop_length))
                 else:
                     continue
@@ -152,43 +168,38 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         else:
             # Return a zero tensor with fixed spec dimensions
             return torch.zeros(80, 1000)  # Assuming 80 mel channels and 1000 time steps
-
-        
-
-        
-        return audiopath
+        # return audiopath
     
     def get_vision_prompt(self, vision_prompt):
-        # if vision_prompt != "" and os.path.exists(vision_prompt):
-        #     image = Image.open(vision_prompt).convert("RGB")
-        #     transform = transforms.Compose([
-        #         transforms.Resize((224,224)),
-        #         transforms.ToTensor(),
-        #         transforms.Normalize(mean=[0.485, 0.456,0.406],
-        #                              std=[0.229, 0.224, 0.225])
-        #     ])
-        #     image =transform(image)
-        # else:
-        #     image = torch.zeros(3,224,224)
-        return vision_prompt
+        if vision_prompt != "" and os.path.exists(vision_prompt):
+            image = Image.open(vision_prompt).convert("RGB")
+            transform = transforms.Compose([
+                transforms.Resize((224,224)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456,0.406],
+                                     std=[0.229, 0.224, 0.225])
+            ])
+            image =transform(image)
+        else:
+            image = torch.zeros(3,224,224)
+        return image
     
     def get_text_prompt(self, text_prompt):
-        # if text_prompt != "":
-        #     prompt_norm = text_to_sequence(text_prompt, self.text_cleaners)
-        #     prompt_norm = torch.LongTensor(prompt_norm)
-        #     if self.add_blank:
-        #         prompt_norm = commons.intersperse(prompt_norm, 0)
-        #     max_prompt_len = self.max_text_len  # Or another suitable value            
-        #     padded_prompt = torch.zeros(max_prompt_len, dtype=torch.long)
-        #     if len(prompt_norm) > max_prompt_len:
-        #         padded_prompt[:max_prompt_len] = prompt_norm[:max_prompt_len]
-        #     else:
-        #         padded_prompt[:len(prompt_norm)] = prompt_norm
-        #     return padded_prompt
-        # else:
-        #     return torch.zeros(self.max_text_len, dtype=torch.long)
-        return text_prompt
-
+        if text_prompt != "":
+            prompt_norm = text_to_sequence(text_prompt, self.text_cleaners)
+            prompt_norm = torch.LongTensor(prompt_norm)
+            if self.add_blank:
+                prompt_norm = commons.intersperse(prompt_norm, 0)
+            max_prompt_len = self.max_text_len  # Or another suitable value            
+            padded_prompt = torch.zeros(max_prompt_len, dtype=torch.long)
+            if len(prompt_norm) > max_prompt_len:
+                padded_prompt[:max_prompt_len] = prompt_norm[:max_prompt_len]
+            else:
+                padded_prompt[:len(prompt_norm)] = prompt_norm
+            return padded_prompt
+        else:
+            return torch.zeros(self.max_text_len, dtype=torch.long)
+        
 
     def __getitem__(self, index):
         return self.get_audio_text_speaker_pair(self.audiopaths_sid_text[index])

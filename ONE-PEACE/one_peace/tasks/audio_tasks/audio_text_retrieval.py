@@ -45,7 +45,7 @@ class AudioTextRetrievalTask(BaseTask):
         self.text_ids = []
         self.texts = []
         # data = pd.read_csv(self.cfg.valid_file)
-        data = pd.read_csv('/workspace/jaeyoung/StoryTeller/valid1000_merged_caption_MMTTS.csv')
+        data = pd.read_csv('/workspace/jaeyoung/StoryTeller/valid1000_merged_caption_imgpath_MMTTS.csv')
 
         for index, row in data.iterrows():
             self.text_ids.append(index)   # DataFrame의 인덱스를 저장

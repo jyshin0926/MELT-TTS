@@ -37,36 +37,41 @@ def resample_multiple_audios(input_dir, output_dir, target_sr=22050):
     os.makedirs(output_dir, exist_ok=True)
 
     # List all audio files in the input directory with correct endswith usage
-    audio_files = [
-        os.path.join(input_dir, x)
-        for x in os.listdir(input_dir)
-        if x.lower().endswith(('.wav', '.flac'))
-    ]
+    emotions = ['happy', 'sad', 'surprised','neutral', 'angry']
+    for i in range(20, 21):
+        speaker_dir = os.path.join(input_dir, '00'+str(i))
+        for e in emotions:
+            audio_dir = os.path.join(speaker_dir, e)
+            audio_files = [
+                os.path.join(audio_dir, x)
+                for x in os.listdir(audio_dir)
+                if x.lower().endswith(('.wav', '.flac'))
+            ]
 
-    if not audio_files:
-        print("No audio files found in the input directory.")
-        return []
+            if not audio_files:
+                print("No audio files found in the input directory.")
+                return []
 
-    print(f"Found {len(audio_files)} audio files. Starting resampling...")
+            print(f"Found {len(audio_files)} audio files. Starting resampling...")
 
-    # Launch resampling tasks in parallel
-    resample_tasks = [
-        resample_audio.remote(file, output_dir, target_sr) for file in audio_files
-    ]
+            # Launch resampling tasks in parallel
+            resample_tasks = [
+                resample_audio.remote(file, output_dir, target_sr) for file in audio_files
+            ]
 
-    # Collect the results as they complete
-    resampled_files = ray.get(resample_tasks)
+            # Collect the results as they complete
+            resampled_files = ray.get(resample_tasks)
 
-    print("Resampling completed. Resampled files:")
-    for file in resampled_files:
-        print(file)
+            print("Resampling completed. Resampled files:")
+            for file in resampled_files:
+                print(file)
 
     return resampled_files
 
 if __name__ == "__main__":
 	# Define input and output directories
-	INPUT_DIR = '/workspace/jaeyoung/datasets/mm-tts-dataset/raw'
-	OUTPUT_DIR = '/workspace/jaeyoung/datasets/mm-tts-dataset_resampled'
+	INPUT_DIR = '/workspace/jaeyoung/datasets/Emotion_Speech_Dataset'
+	OUTPUT_DIR = '/workspace/jaeyoung/datasets/ESD_eng_resampled'
 	TARGET_SAMPLING_RATE = 22050         # Target sampling rate in Hz
 
 	# Start resampling

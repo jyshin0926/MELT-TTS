@@ -268,7 +268,7 @@ def load_wav_to_torch(full_path, target_sr=22050):
   audio, sr = torchaudio.load(full_path)
   if sr != target_sr:
     resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=target_sr)
-    audio = resampler(audo)
+    audio = resampler(audio)
   return audio.squeeze(0), target_sr
   # return torch.FloatTensor(data.astype(np.float32)), sampling_rate
 
@@ -311,6 +311,7 @@ def load_filepaths_and_text(datasets: HParams):
 
 def create_speaker_lookup_table(data):
     speaker_ids = list(np.sort(np.unique([x for x in data]))[::-1])
+    # speaker_ids = sorted(list(set(speaker_names)), reverse=True)
     d = {speaker_ids[i]: i for i in range(len(speaker_ids))}
     print("Number of speakers:", len(d))
     print("Speaker IDS", d)

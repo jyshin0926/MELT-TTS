@@ -24,6 +24,9 @@ from data_utils import (
 from models import (
   SynthesizerTrn,
   MultiPeriodDiscriminator,
+  EmotionEncoder,
+  EmotionClassifierModule,
+  EmotionIntensityModule
 )
 from losses import (
   generator_loss,
@@ -92,6 +95,24 @@ def run(rank, n_gpus, hps):
       emotion_classes=hps.model.emotion_classes,
       **hps.model).cuda(rank)
   net_d = MultiPeriodDiscriminator(hps.model.use_spectral_norm).cuda(rank)
+  
+  # TODO:: define emotion modules 
+  emotion_enc = EmotionEncoder(
+    vision_model_path=hps.model.vision_model_path,
+    audio_model_path=hps.model.audio_model_path
+  ).cuda(rank)
+  
+  emotion_classifier = EmotionClassifierModule(
+    emotion_classes=hps.model.emotion_classes,
+    min_intensity=0.0,
+    max_intensity=1.0
+  ).cuda(rank)
+  
+  emotion_modulator = EmotionIntensityModule(
+    emotion_classes=hps.model.emotion_classes,
+    input_size=768*2 # TODO:: emotion_emb dim 보고 설정
+  ).cuda(rank)
+  
   optim_g = torch.optim.AdamW(
       net_g.parameters(), 
       hps.train.learning_rate, 
@@ -104,6 +125,12 @@ def run(rank, n_gpus, hps):
       eps=hps.train.eps)
   net_g = DDP(net_g, device_ids=[rank])
   net_d = DDP(net_d, device_ids=[rank])
+  
+  # TODO:: define emodion modules for DDP
+  emotion_encoder = DDP(emotion_enc, device_ids=[rank])
+  emotion_classifier = DDP(emotion_classifier, device_ids=[rank])
+  emotion_modulator = DDP(emotion_modulator, device_ids=[rank])
+
 
   try:
     _, _, _, epoch_str = utils.load_checkpoint(utils.latest_checkpoint_path(hps.model_dir, "G_*.pth"), net_g, optim_g)
@@ -120,15 +147,15 @@ def run(rank, n_gpus, hps):
 
   for epoch in range(epoch_str, hps.train.epochs + 1):
     if rank==0:
-      train_and_evaluate(rank, epoch, hps, [net_g, net_d], [optim_g, optim_d], [scheduler_g, scheduler_d], scaler, [train_loader, eval_loader], logger, [writer, writer_eval])
+      train_and_evaluate(rank, epoch, hps, [net_g, net_d, emotion_encoder, emotion_classifier, emotion_modulator], [optim_g, optim_d], [scheduler_g, scheduler_d], scaler, [train_loader, eval_loader], logger, [writer, writer_eval])
     else:
-      train_and_evaluate(rank, epoch, hps, [net_g, net_d], [optim_g, optim_d], [scheduler_g, scheduler_d], scaler, [train_loader, None], None, None)
+      train_and_evaluate(rank, epoch, hps, [net_g, net_d, emotion_encoder, emotion_classifier, emotion_modulator], [optim_g, optim_d], [scheduler_g, scheduler_d], scaler, [train_loader, None], None, None)
     scheduler_g.step()
     scheduler_d.step()
 
 
 def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loaders, logger, writers):
-  net_g, net_d = nets
+  net_g, net_d, emotion_encoder, emotion_classifier, emotion_modulator = nets
   optim_g, optim_d = optims
   scheduler_g, scheduler_d = schedulers
   train_loader, eval_loader = loaders
@@ -140,7 +167,9 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
 
   net_g.train()
   net_d.train()
-  for batch_idx, (x, x_lengths, spec, spec_lengths, y, y_lengths, speakers, text_prompt, vision_prompt, audio_prompt) in enumerate(train_loader):
+  
+  # TODO:: check eid in models.py
+  for batch_idx, (x, x_lengths, spec, spec_lengths, y, y_lengths, speakers, text_prompt, vision_prompt, audio_prompt, eid) in enumerate(train_loader):
     x, x_lengths = x.cuda(rank, non_blocking=True), x_lengths.cuda(rank, non_blocking=True)
     spec, spec_lengths = spec.cuda(rank, non_blocking=True), spec_lengths.cuda(rank, non_blocking=True)
     y, y_lengths = y.cuda(rank, non_blocking=True), y_lengths.cuda(rank, non_blocking=True)
@@ -152,14 +181,19 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
       vision_prompt = vision_prompt.cuda(rank, non_blocking=True)
     if audio_prompt is not None:
       audio_prompt = audio_prompt.cuda(rank, non_blocking=True)
+    
+    if eid is not None:
+      eid = eid.cuda(rank, non_blocking=True)
 
 
+    # TODO: gen_emo_emb 대신 emo_enc 를 리턴해서 여기서 gen_emo_emb 생성
     with autocast(enabled=hps.train.fp16_run):
       y_hat, l_length, attn, ids_slice, x_mask, z_mask,\
-      (z, z_p, m_p, logs_p, m_q, logs_q), (gen_emo_emb, tgt_emo_emb) = net_g(x, x_lengths, spec, spec_lengths, speakers,
+      (z, z_p, m_p, logs_p, m_q, logs_q), _ = net_g(x, x_lengths, spec, spec_lengths, speakers,
                                                  text_prompt=text_prompt,
                                                  vision_prompt=vision_prompt,  
-                                                 audio_prompt=audio_prompt)
+                                                 audio_prompt=audio_prompt,
+                                                 eid=eid)
 
       mel = spec_to_mel_torch(
           spec, 
@@ -183,7 +217,7 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
       y = commons.slice_segments(y, ids_slice * hps.data.hop_length, hps.train.segment_size) # slice 
 
       # Discriminator
-      y_d_hat_r, y_d_hat_g, _, _ = net_d(y, y_hat.detach())
+      y_d_hat_r, y_d_hat_g, _, _ = net_d(y, y_hat.detach()) # TODO:: fmap_rs, fmap_gs
       with autocast(enabled=False):
         loss_disc, losses_disc_r, losses_disc_g = discriminator_loss(y_d_hat_r, y_d_hat_g)
         loss_disc_all = loss_disc
@@ -196,13 +230,34 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
     with autocast(enabled=hps.train.fp16_run):
       # Generator
       y_d_hat_r, y_d_hat_g, fmap_r, fmap_g = net_d(y, y_hat)
+      
+      # TODO:: Emotion Module
+      
       with autocast(enabled=False):
         loss_dur = torch.sum(l_length.float())
         loss_mel = F.l1_loss(y_mel, y_hat_mel) * hps.train.c_mel
         loss_kl = kl_loss(z_p, logs_q, m_p, logs_p, z_mask) * hps.train.c_kl
         
-        # TODO:: ecl 추가 (gen_emo_emb, tgt_emo_emb)
-        loss_ecl = emotion_consistency_loss(gen_emo_emb,tgt_emo_emb,loss_type='cosine')
+        gen_emo_emb = emotion_encoder(y_hat).squeeze(1) # TODO:: [batch, embedding_dim]
+        tgt_emo_emb = emotion_encoder(y).squeeze(1) # TODO:: [batch, embedding_dim]
+        
+        gen_emotion_dicts = emotion_classifier(gen_emo_emb)
+        tgt_emotion_dicts = emotion_classifier(tgt_emo_emb)
+        
+        gen_emo_emb = emotion_modulator(gen_emo_emb, gen_emotion_dicts)
+        tgt_emo_emb = emotion_modulator(tgt_emo_emb, tgt_emotion_dicts)
+        
+        modulated_gen_emo_emb = torch.stack([
+          emotion_modulator(gen_emo_emb[i], gen_emotion_dicts[i])
+          for i in range(gen_emo_emb.size(0))
+        ], dim=0)
+        modulated_tgt_emo_emb = torch.stack([
+          emotion_modulator(tgt_emo_emb[i], tgt_emotion_dicts[i])
+          for i in range(tgt_emo_emb.size(0))
+        ], dim=0
+        )
+        
+        loss_ecl = emotion_consistency_loss(modulated_gen_emo_emb,modulated_tgt_emo_emb,loss_type='cosine')
 
         loss_fm = feature_loss(fmap_r, fmap_g)
         loss_gen, losses_gen = generator_loss(y_d_hat_g)
@@ -243,6 +298,9 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
 
       if global_step % hps.train.eval_interval == 0:
         evaluate(hps, net_g, eval_loader, writer_eval,
+                 emotion_encoder,
+                 emotion_classifier,
+                 emotion_modulator,
                  text_prompt=text_prompt,
                  vision_prompt=vision_prompt,
                  audio_prompt=audio_prompt)
@@ -254,10 +312,10 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
     logger.info('====> Epoch: {}'.format(epoch))
 
  
-def evaluate(hps, generator, eval_loader, writer_eval, text_prompt=None, vision_prompt=None, audio_prompt=None):
+def evaluate(hps, generator, eval_loader, writer_eval, emotion_encoder, emotion_classifier, emotion_modulator, text_prompt=None, vision_prompt=None, audio_prompt=None):
     generator.eval()
     with torch.no_grad():
-      for batch_idx, (x, x_lengths, spec, spec_lengths, y, y_lengths, speakers, text_prompt, vision_prompt, audio_prompt) in enumerate(eval_loader):
+      for batch_idx, (x, x_lengths, spec, spec_lengths, y, y_lengths, speakers, text_prompt, vision_prompt, audio_prompt, eid) in enumerate(eval_loader):
         x, x_lengths = x.cuda(0), x_lengths.cuda(0)
         spec, spec_lengths = spec.cuda(0), spec_lengths.cuda(0)
         y, y_lengths = y.cuda(0), y_lengths.cuda(0)
@@ -269,7 +327,8 @@ def evaluate(hps, generator, eval_loader, writer_eval, text_prompt=None, vision_
           vision_prompt = vision_prompt.cuda(0)
         if audio_prompt is not None:
           audio_prompt = text_prompt.cuda(0)
-
+        if eid is not None:
+          eid = eid.cuda(0)
 
         # remove else
         x = x[:1]
@@ -282,8 +341,9 @@ def evaluate(hps, generator, eval_loader, writer_eval, text_prompt=None, vision_
         text_prompt = text_prompt[:1]
         vision_prompt = vision_prompt[:1]
         audio_prompt = audio_prompt[:1]
+        eid = eid[:1] # TODO:: chk eid
         break
-      y_hat, attn, mask, *_ = generator.module.infer(x, x_lengths, speakers, max_len=1000, text_prompt=text_prompt, vision_prompt=vision_prompt, audio_prompt=audio_prompt)
+      y_hat, attn, mask, *_ = generator.module.infer(x, x_lengths, speakers, max_len=1000, text_prompt=text_prompt, vision_prompt=vision_prompt, audio_prompt=audio_prompt, eid=eid)
       y_hat_lengths = mask.sum([1,2]).long() * hps.data.hop_length
 
       mel = spec_to_mel_torch(
@@ -303,6 +363,23 @@ def evaluate(hps, generator, eval_loader, writer_eval, text_prompt=None, vision_
         hps.data.mel_fmin,
         hps.data.mel_fmax
       )
+    
+    gen_emo_emb = emotion_encoder(y_hat).squeeze(1)
+    tgt_emo_emb = emotion_encoder(y).squeeze(1)
+    
+    gen_emotion_dicts = emotion_classifier(gen_emo_emb)
+    tgt_emotion_dicts = emotion_classifier(tgt_emo_emb)
+    
+    modulated_gen_emo_emb = torch.stack([
+      emotion_modulator(gen_emo_emb[i], gen_emotion_dicts[i])
+      for i in range(gen_emo_emb.size(0))
+    ], dim=0)
+    modulated_tgt_emo_emb = torch.stack([
+      emotion_modulator(tgt_emo_emb[i], tgt_emotion_dicts[i])
+      for i in range(tgt_emo_emb.size(0))
+    ], dim=0)
+    
+    
     image_dict = {
       "gen/mel": utils.plot_spectrogram_to_numpy(y_hat_mel[0].cpu().numpy())
     }
