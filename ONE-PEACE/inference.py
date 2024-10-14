@@ -13,7 +13,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = from_pretrained(
     # model_name_or_path="/workspace/jaeyoung/checkpoints/one-peace_pretrained.pt",
-    model_name_or_path="/workspace/jaeyoung/checkpoints/one_peace/esd_mmstts_al_0917/checkpoint_best.pt",
+    model_name_or_path="/workspace/jaeyoung/checkpoints/onepeace/esd_pretrained_al_1009/checkpoint_best.pt",
     model_type="one_peace_retrieval",
     device=device,
     dtype="float16"
@@ -28,7 +28,7 @@ captions_path = "/workspace/jaeyoung/StoryTeller/valid1000_merged_caption_MMTTS.
 audio_dir = "/workspace/jaeyoung/datasets/Emotion_Speech_Dataset"
 df = pd.read_csv(captions_path)
 # text_queries = df['caption1'].tolist()[:10]
-text_queries = ['A girl calmly said.']
+text_queries = ['A woman said with tears.']
 audio_files = os.listdir(audio_dir)
 audio_list = find_wav_files(audio_dir)[:10000]
 # audio_list = [os.path.join(audio_dir, x) for x in audio_files if not x.startswith('._')][:1000]
@@ -37,9 +37,8 @@ audio_list = find_wav_files(audio_dir)[:10000]
 results_df = pd.DataFrame(columns=['caption', 'fname_1', 'fname_2', 'fname_3', 'fname_4', 'fname_5', 'fname_6', 'fname_7', 'fname_8', 'fname_9', 'fname_10'])
 
 # Batch processing parameters
-audio_batch_size = 10  # Adjust based on your GPU capacity
-text_batch_size = 50   # Adjust based on your GPU capacity
-
+audio_batch_size = 10
+text_batch_size = 50   
 if __name__ == '__main__':
     with torch.no_grad():
         # Process audio in batches

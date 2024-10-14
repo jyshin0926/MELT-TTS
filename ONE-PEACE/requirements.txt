@@ -16,3 +16,5 @@ pandas
 gpustat
 unidecode
 phonemizer
+transformers
+os

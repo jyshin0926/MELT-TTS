@@ -6,14 +6,15 @@ import pandas as pd
 import os
 from glob import glob
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 # TODO:: al rep model text parameters로 update한 vl model 로 추론 체크
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = from_pretrained(
-    model_name_or_path="/workspace/jaeyoung/checkpoints/one_peace/mmtts_vl_0907_lr2e-6/checkpoint_best.pt",
+    # model_name_or_path="/workspace/jaeyoung/checkpoints/onepeace/mmtts_vl_1013/checkpoint_last.pt",
     # model_name_or_path="/workspace/jaeyoung/checkpoints/one-peace_pretrained.pt",
-    # model_name_or_path="/workspace/jaeyoung/checkpoints/one_peace_fusion/vl_txt_updagte_0923.pt",
+    # model_name_or_path="/workspace/jaeyoung/checkpoints/one_peace_fusion/vl_txt_update_1014.pt",
+    model_name_or_path="/workspace/jaeyoung/checkpoints/onepeace/mmtts_vl_1009/checkpoint_best.pt",
     model_type="one_peace_retrieval",
     device=device,
     dtype="float16"
