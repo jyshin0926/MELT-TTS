@@ -69,7 +69,7 @@
     "n_layers_q": 3,
     "use_spectral_norm": false,
     "gin_channels": 256,
-    "vision_model_path":"/workspace/jaeyoung/checkpoints/one_peace_fusioonepeace/mmtts_vl_1013/checkpoint_last.pt",
+    "vision_model_path":"/workspace/jaeyoung/checkpoints/onepeace/mmtts_vl_1013/checkpoint_last.pt",
     "audio_model_path":"/workspace/jaeyoung/checkpoints/onepeace/esd_mmtts_al_1014/checkpoint_last.pt",
     "emotion_classes":["neutral","happy","angry","sad","surprised", "contempt", "disgusted", "fear"]
   }

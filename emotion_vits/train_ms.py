@@ -47,12 +47,14 @@ def main():
   """Assume Single Node Multi GPUs Training Only"""
   assert torch.cuda.is_available(), "CPU training is not allowed."
 
-  n_gpus = torch.cuda.device_count()
+  # n_gpus = torch.cuda.device_count()
+  n_gpus = 1
   os.environ['MASTER_ADDR'] = 'localhost'
-  os.environ['MASTER_PORT'] = '12345'
+  os.environ['MASTER_PORT'] = '23456'
 
   hps = utils.get_hparams()
-  mp.spawn(run, nprocs=n_gpus, args=(n_gpus, hps,))
+  # mp.spawn(run, nprocs=n_gpus, args=(n_gpus, hps,))
+  run(0, n_gpus, hps)
 
 
 def run(rank, n_gpus, hps):
@@ -90,27 +92,30 @@ def run(rank, n_gpus, hps):
       hps.data.filter_length // 2 + 1,
       hps.train.segment_size // hps.data.hop_length,
       n_speakers=hps.data.n_speakers,
-      vision_model_path=hps.model.vision_model_path,
-      audio_model_path=hps.model.audio_model_path,
-      emotion_classes=hps.model.emotion_classes,
+      n_emotions=hps.data.n_emotions,
       **hps.model).cuda(rank)
+  # model_dict = net_g.state_dict() # for updating parameters of emotions
+  # pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict \
+  #   and 'emotion' not in k}
+  # model_dict.update(pretrained_dict)
+
   net_d = MultiPeriodDiscriminator(hps.model.use_spectral_norm).cuda(rank)
   
   # TODO:: define emotion modules 
-  emotion_enc = EmotionEncoder(
+  emotion_encoder = EmotionEncoder(
     vision_model_path=hps.model.vision_model_path,
     audio_model_path=hps.model.audio_model_path
   ).cuda(rank)
   
   emotion_classifier = EmotionClassifierModule(
     emotion_classes=hps.model.emotion_classes,
-    min_intensity=0.0,
-    max_intensity=1.0
+    input_size=768*2 # TODO:: emotion_emb dim 보고 설정
   ).cuda(rank)
   
   emotion_modulator = EmotionIntensityModule(
     emotion_classes=hps.model.emotion_classes,
-    input_size=768*2 # TODO:: emotion_emb dim 보고 설정
+    min_intensity=0.0,
+    max_intensity=1.0
   ).cuda(rank)
   
   optim_g = torch.optim.AdamW(
@@ -123,17 +128,11 @@ def run(rank, n_gpus, hps):
       hps.train.learning_rate, 
       betas=hps.train.betas, 
       eps=hps.train.eps)
-  net_g = DDP(net_g, device_ids=[rank])
-  net_d = DDP(net_d, device_ids=[rank])
-  
-  # TODO:: define emodion modules for DDP
-  emotion_encoder = DDP(emotion_enc, device_ids=[rank])
-  emotion_classifier = DDP(emotion_classifier, device_ids=[rank])
-  emotion_modulator = DDP(emotion_modulator, device_ids=[rank])
-
+  net_g = DDP(net_g, device_ids=[rank], find_unused_parameters=True)
+  net_d = DDP(net_d, device_ids=[rank], find_unused_parameters=True)
 
   try:
-    _, _, _, epoch_str = utils.load_checkpoint(utils.latest_checkpoint_path(hps.model_dir, "G_*.pth"), net_g, optim_g)
+    pretrained_dict, _, _, epoch_str = utils.load_checkpoint(utils.latest_checkpoint_path(hps.model_dir, "G_*.pth"), net_g, optim_g)
     _, _, _, epoch_str = utils.load_checkpoint(utils.latest_checkpoint_path(hps.model_dir, "D_*.pth"), net_d, optim_d)
     global_step = (epoch_str - 1) * len(train_loader)
   except:
@@ -217,7 +216,7 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
       y = commons.slice_segments(y, ids_slice * hps.data.hop_length, hps.train.segment_size) # slice 
 
       # Discriminator
-      y_d_hat_r, y_d_hat_g, _, _ = net_d(y, y_hat.detach()) # TODO:: fmap_rs, fmap_gs
+      y_d_hat_r, y_d_hat_g, _, _ = net_d(y, y_hat.detach())
       with autocast(enabled=False):
         loss_disc, losses_disc_r, losses_disc_g = discriminator_loss(y_d_hat_r, y_d_hat_g)
         loss_disc_all = loss_disc
@@ -230,9 +229,7 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
     with autocast(enabled=hps.train.fp16_run):
       # Generator
       y_d_hat_r, y_d_hat_g, fmap_r, fmap_g = net_d(y, y_hat)
-      
-      # TODO:: Emotion Module
-      
+            
       with autocast(enabled=False):
         loss_dur = torch.sum(l_length.float())
         loss_mel = F.l1_loss(y_mel, y_hat_mel) * hps.train.c_mel
@@ -341,7 +338,7 @@ def evaluate(hps, generator, eval_loader, writer_eval, emotion_encoder, emotion_
         text_prompt = text_prompt[:1]
         vision_prompt = vision_prompt[:1]
         audio_prompt = audio_prompt[:1]
-        eid = eid[:1] # TODO:: chk eid
+        eid = eid[:1]
         break
       y_hat, attn, mask, *_ = generator.module.infer(x, x_lengths, speakers, max_len=1000, text_prompt=text_prompt, vision_prompt=vision_prompt, audio_prompt=audio_prompt, eid=eid)
       y_hat_lengths = mask.sum([1,2]).long() * hps.data.hop_length

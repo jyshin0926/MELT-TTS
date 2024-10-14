@@ -138,7 +138,6 @@ class DurationPredictor(nn.Module):
     x = self.proj(x * x_mask)
     return x * x_mask
 
-# TODO::EmotionEncoder (for emotion feature extraction)
 class EmotionEncoder(nn.Module):
   def __init__(self,vision_model_path, audio_model_path):
 
@@ -233,7 +232,6 @@ class EmotionClassifierModule(nn.Module):
   def forward(self, emotion_emb):
     emotion_logits = self.classifier(emotion_emb)
     emotion_probs = F.softmax(emotion_logits, dim=-1)
-    # emotion_dict = {self.emotion_classes[i]: emotion_probs[0, i].item() for i in range(len(self.emotion_classes))}
     emotion_dicts = []
     for prob in emotion_probs:
       emotion_dict = {self.emotion_classes[i]: prob[i].item()
@@ -243,7 +241,6 @@ class EmotionClassifierModule(nn.Module):
     return emotion_dicts
     
 
-# TODO:: emotion intensity (EmoQ-TTS) / Residual Vector Quantization
 class EmotionIntensityModule(nn.Module):
   def __init__(self, emotion_classes, min_intensity=0.0, max_intensity=1.0):
     super(EmotionIntensityModule, self).__init__()
@@ -270,7 +267,53 @@ class EmotionIntensityModule(nn.Module):
     
     return modulated_emotion_emb
 
+# emotion intensity (EmoQ-TTS) / Residual Vector Quantization
+class IntensityPredictor(nn.Module):
+  def __init__(self, input_dim, output_dim):
+    super(IntensityPredictor, self).__init__()
+    self.net = nn.Sequential(
+            nn.Linear(input_dim, 128),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(64, output_dim)
+    )
+    
+    def forward(self, x):
+      return self.net(x)
+    
+class IntensityQuantizer(nn.Module):
+  def __init__(self, levels):
+    super(IntensityQuantizer, self).__init__()
+    self.levels = levels
+    
+  def forward(self, intensities):
+    min_val, max_val = intensities.min(), intensities.max()
+    normalized_intensities = (intensities - min_val) / (max_val - min_val)
+    
+    scaled_intensities = normalized_intensities * (self.levels - 1)
+    quantized_intensities = torch.round(scaled_intensities).long()
+    return quantized_intensities
+    
+class IntensityModule(nn.Module):
+  def __init__(self, input_dim, num_intensity_levels):
+    super(IntensityModule, self).__init__()
+    self.intensity_predictor = IntensityPredictor(input_dim, 1)
+    self.intensity_quantizer = IntensityQuantizer(num_intensity_levels, input_dim)
+    self.intensity_embeddings = nn.Embedding(num_intensity_levels, input_dim)
+    
+  def forward(self, phoneme_features):
+    raw_intensities = self.intensity_predictor(phoneme_features)
+    quantized_intensities = self.intensity_quantizer(raw_intensities)
+    intensity_embeddings = self.intensity_embeddings(quantized_intensities)
+    
+    enhanced_features = phoneme_features + intensity_embeddings
+    return enhanced_features
+  
 # TODO:: AVDEncoder (EmoSphere-TTS; Arousal, Valence, Dominance)
+
 
 class TextEncoder(nn.Module):
   def __init__(self,
@@ -669,7 +712,7 @@ class SynthesizerTrn(nn.Module):
     o = self.dec(z_slice, g=g)
     return o, l_length, attn, ids_slice, x_mask, y_mask, (z, z_p, m_p, logs_p, m_q, logs_q), (None, None)  # TODO:: Emotion Embeddings 별도 처리
 
-  def infer(self, x, x_lengths, sid=None, noise_scale=1, length_scale=1, noise_scale_w=1., max_len=None, vision_prompt=None, audio_prompt=None):
+  def infer(self, x, x_lengths, sid=None, noise_scale=1, length_scale=1, noise_scale_w=1., max_len=None, vision_prompt=None, audio_prompt=None, eid=None):
     x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
     
     # emotion_emb = self.emotion_enc(text_prompt=x, vision_prompt=vision_prompt, audio_prompt=audio_prompt)
@@ -701,7 +744,7 @@ class SynthesizerTrn(nn.Module):
     o = self.dec((z * y_mask)[:,:,:max_len], g=g)
     return o, attn, y_mask, (z, z_p, m_p, logs_p)
 
-  def voice_conversion(self, y, y_lengths, sid_src, sid_tgt, text_prompt=None, vision_prompt=None, audio_prompt=None):
+  def voice_conversion(self, y, y_lengths, sid_src, sid_tgt, text_prompt=None, vision_prompt=None, audio_prompt=None, eid=None):
     assert self.n_speakers > 0, "n_speakers have to be larger than 0."
     g_src = self.emb_g(sid_src).unsqueeze(-1)
     g_tgt = self.emb_g(sid_tgt).unsqueeze(-1)

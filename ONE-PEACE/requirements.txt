@@ -12,9 +12,3 @@ pydub==0.25.1
 scikit-learn==1.0.2
 librosa==0.10.0
 wget==3.2
-pandas
-gpustat
-unidecode
-phonemizer
-transformers
-os

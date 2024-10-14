@@ -23,7 +23,7 @@ def get_hparams(init=True):
   parser.add_argument('-c', '--config', type=str, default="/workspace/jaeyoung/StoryTeller/emotion_vits/configs/esd_mm.json",
                       help='JSON file for configuration')
   parser.add_argument('-m', '--model', type=str,
-                      default="/workspace/jaeyoung/checkpoint/VITS/1001_model",
+                      default="/workspace/jaeyoung/checkpoints/vits",
                       help='Model name')
   
   args = parser.parse_args()
@@ -144,7 +144,6 @@ def unfreeze(model):
     p.requires_grad = True
   
 
-# TODO:: 수정 필요
 def load_checkpoint(checkpoint_path, model, optimizer=None):
   assert os.path.isfile(checkpoint_path)
   checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
