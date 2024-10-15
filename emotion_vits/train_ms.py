@@ -1,5 +1,6 @@
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:32'
 import json
 import argparse
 import itertools
@@ -113,9 +114,11 @@ def run(rank, n_gpus, hps):
   ).cuda(rank)
   
   emotion_modulator = EmotionIntensityModule(
+    vision_model_path=hps.model.vision_model_path,
+    audio_model_path=hps.model.audio_model_path,
     emotion_classes=hps.model.emotion_classes,
-    min_intensity=0.0,
-    max_intensity=1.0
+    input_dim = 768*2,
+    num_intensity_levels=1
   ).cuda(rank)
   
   optim_g = torch.optim.AdamW(
@@ -241,7 +244,7 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
         gen_emotion_dicts = emotion_classifier(gen_emo_emb)
         tgt_emotion_dicts = emotion_classifier(tgt_emo_emb)
         
-        gen_emo_emb = emotion_modulator(gen_emo_emb, gen_emotion_dicts)
+        gen_emo_emb = emotion_modulator(gen_emo_emb, gen_emotion_dicts) # TODO:: emb 만 input / dict 까지 -> mixing
         tgt_emo_emb = emotion_modulator(tgt_emo_emb, tgt_emotion_dicts)
         
         modulated_gen_emo_emb = torch.stack([
@@ -307,7 +310,9 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
   
   if rank == 0:
     logger.info('====> Epoch: {}'.format(epoch))
-
+  
+  torch.cuda.empty_cache()
+  
  
 def evaluate(hps, generator, eval_loader, writer_eval, emotion_encoder, emotion_classifier, emotion_modulator, text_prompt=None, vision_prompt=None, audio_prompt=None):
     generator.eval()

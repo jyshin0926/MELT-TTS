@@ -143,7 +143,7 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         sid = torch.LongTensor([int(sid)])
         return sid
     
-    # TODO:: batch size setting
+    # TODO:: chk size of spec
     def get_audio_prompt(self, audio_prompt_path):
         if audio_prompt_path != "" and os.path.exists(audio_prompt_path):
             audio, sampling_rate = load_wav_to_torch(audio_prompt_path)
@@ -158,16 +158,16 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
                 center=False)
             spec = torch.squeeze(spec, 0)
             # Optionally, pad or slice spec to a fixed length
-            max_spec_len = 1000  # Example fixed length
-            if spec.size(0) > max_spec_len:
-                spec = spec[:, :max_spec_len]
-            else:
-                pad_size = max_spec_len - spec.size(0)
-                spec = F.pad(spec, (0, pad_size), "constant", 0)
+            # max_spec_len = 1000  # Example fixed length
+            # if spec.size(1) > max_spec_len:
+            #     spec = spec[:, :max_spec_len]
+            # else:
+            #     pad_size = max_spec_len - spec.size(1)
+            #     spec = F.pad(spec, (0, pad_size), "constant", 0)
             return spec
-        else:
-            # Return a zero tensor with fixed spec dimensions
-            return torch.zeros(80, 1000)  # Assuming 80 mel channels and 1000 time steps
+        # else:
+        #     # Return a zero tensor with fixed spec dimensions
+        #     return torch.zeros(80, 1000)  # Assuming 80 mel channels and 1000 time steps
     
     def get_vision_prompt(self, vision_prompt):
         if vision_prompt != "" and os.path.exists(vision_prompt):
