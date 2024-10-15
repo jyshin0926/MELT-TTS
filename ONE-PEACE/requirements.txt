@@ -12,9 +12,3 @@ pydub==0.25.1
 scikit-learn==1.0.2
 librosa==0.10.0
 wget==3.2
-tensorboard==2.18.0
-pandas
-Unidecode
-phonemizer
-typing_extensions
-espeak

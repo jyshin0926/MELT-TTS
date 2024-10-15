@@ -143,18 +143,18 @@ class EmotionEncoder(nn.Module):
   def __init__(self,vision_model_path, audio_model_path):
 
     super(EmotionEncoder, self).__init__()
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    # device = "cuda" if torch.cuda.is_available() else "cpu"
     self.vision_model = from_pretrained(
         model_name_or_path="/workspace/jaeyoung/checkpoints/onepeace/mmtts_vl_1013/checkpoint_last.pt",
         model_type="one_peace_retrieval",
-        device=device,
+        device='cuda:0',
         dtype="float16"
     )
     
     self.audio_model = from_pretrained(
         model_name_or_path="/workspace/jaeyoung/checkpoints/onepeace/esd_mmtts_al_1014/checkpoint_last.pt",
         model_type="one_peace_retrieval",
-        device=device,
+        device='cuda:1',
         dtype="float16"
     )
     
@@ -170,9 +170,9 @@ class EmotionEncoder(nn.Module):
       Returns:
       torch.Tensor: Combined emotion embedding.
       """      
-      text_batch_size = 50   # Adjust based on your GPU capacity
-      image_batch_size = 10  
-      audio_batch_size = 10  
+      text_batch_size = 16   # Adjust based on your GPU capacity
+      image_batch_size = 4  
+      audio_batch_size = 4  
 
       with torch.no_grad():
         if text_prompt is not None:
