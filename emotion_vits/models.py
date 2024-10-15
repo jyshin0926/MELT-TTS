@@ -667,6 +667,7 @@ class SynthesizerTrn(nn.Module):
 
     x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
     
+    # TODO:: 주석 해제
     # emotion_emb = self.emotion_enc(text_prompt=text_prompt, vision_prompt=vision_prompt, audio_prompt=audio_prompt)
     # emotion_dict = self.emotion_classifier(emotion_emb)
     # modulated_emotion_emb = self.emotion_intensity(emotion_emb, emotion_dict)
