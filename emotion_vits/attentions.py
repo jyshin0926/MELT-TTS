@@ -10,6 +10,77 @@ import modules
 from modules import LayerNorm
    
 
+class CrossAttention(nn.Module):
+  def __init__(self, query_dim, key_dim, num_heads=8, dropout=0.1):
+    super().__init__()
+    self.num_heads = num_heads
+    self.query_dim = query_dim
+    self.key_dim = key_dim
+    
+    self.query = nn.Linear(query_dim, query_dim)
+    self.key = nn.Linear(key_dim, key_dim)
+    self.value = nn.Linear(key_dim, query_dim)
+    
+    self.out_proj = nn.Linear(query_dim, query_dim)
+    self.dropout = nn.Dropout(dropout)
+    
+  def forward(self, query, key, value, mask=None):
+    Q = self.query(query)
+    K = self.key(key)
+    V = self.value(value)
+    
+    # scaled dot-product attention
+    # TODO:: chk transpose order
+    scores = torch.matmul(Q, K.transpose(-2, -1)/ torch.sqrt(torch.tensor(self.query_dim, dtype=torch.float32)))
+    
+    # TODO:: mask lr
+    if mask is not None:
+      scores = scores.masked_fill(mask == 0, -1e9)
+    
+    attn_weights = torch.softmax(scores, dim=-1)  # apply softmax to obtain the aatn weights
+    attended_output = torch.matmul(attn_weights, V)  # weighted sum of values
+    
+    # project the attended output
+    attended_output = self.out_proj(attended_output)
+    attended_output = self.dropout(attended_output)
+    
+    return attended_output, attn_weights
+
+
+class MultiModalModule(nn.Module):
+  def __init__(self, text_dim, vision_dim, audio_dim, num_heads=8, dropout=0.1):
+    super().__init__()
+    
+    self.text_vision_attn = CrossAttention(query_dim=text_dim, key_dim=vision_dim, num_heads=num_heads, dropout=dropout)
+    self.text_audio_attn = CrossAttention(query_dim=text_dim, key_dim=audio_dim, num_heads=num_heads, dropout=dropout)
+    
+    self.fc = nn.Linear(text_dim, text_dim)
+    self.norm = nn.LayerNorm(text_dim)
+    # self.dropout = nn.Dropout(dropout)
+
+  def forward(self, text_features: torch.Tensor, vision_features: torch.Tensor, audio_features: torch.Tensor) -> torch.Tensor:
+    '''
+    Forward pass for the multi-modal model.
+    
+    Args:
+    - text_features: Tensor of shape [batch_size, text_len, text_dim]
+    - vision_features: Tensor of shape [batch_size, vision_len, vision_dim]
+    - audio_features: Tensor of shape [batch_size, audio_len, audio_dim]
+    
+    Returns:
+    - Final representation of text features after attending to vision and audio
+    '''
+    
+    attended_vision, _ = self.text_vision_attn(text_features, vision_features, vision_features)
+    attended_audio, _ = self.text_audio_attn(text_features, audio_features, audio_features)
+    combined_features = attended_vision + attended_audio # TODO:: concat?
+    
+    combined_features = self.fc(combined_features)
+    combined_features = self.norm(combined_features)
+    
+    return combined_features
+
+
 class Encoder(nn.Module):
   def __init__(self, hidden_channels, filter_channels, n_heads, n_layers, kernel_size=1, p_dropout=0., window_size=4, **kwargs):
     super().__init__()

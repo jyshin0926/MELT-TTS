@@ -138,6 +138,7 @@ class DurationPredictor(nn.Module):
     x = self.proj(x * x_mask)
     return x * x_mask
 
+
 class EmotionEncoder(nn.Module):
   def __init__(self,vision_model_path, audio_model_path):
 
@@ -207,21 +208,26 @@ class EmotionEncoder(nn.Module):
           audio_features = torch.cat(all_audio_features, dim=0)
         else:
           audio_features = None
-          
+      
+      # TODO:: cross attention - multimodalmodule 사용 (Text Encoder처럼)
       # combine features (text and vision prompts) (feature fusion - attention network?)
-      if text_features is not None and vision_features is not None and audio_features is not None:
-        emotion_emb = torch.cat([text_features, vision_features, audio_features], dim=-1)
-      elif text_features is not None:
-        emotion_emb = text_features
-      elif vision_features is not None:
-        emotion_emb = vision_features
-      elif audio_features is not None:
-        emotion_emb = audio_features
-      else:
-        raise ValueError("text_prompt, vision_prompt or audio_prompt must be provided") 
-      # return torch.zeros(1, desired_dim).to(audio_prompt.device) # TODO:: desired_dim 설정
-
+      multimodal_model = attentions.MultiModalModule(text_dim=512, vision_dim=768, audio_dim=512)
+      emotion_emb = multimodal_model(text_features, vision_features, audio_features)
       return emotion_emb
+      
+      # if text_features is not None and vision_features is not None and audio_features is not None:
+      #   emotion_emb = torch.cat([text_features, vision_features, audio_features], dim=-1)
+      # elif text_features is not None:
+      #   emotion_emb = text_features
+      # elif vision_features is not None:
+      #   emotion_emb = vision_features
+      # elif audio_features is not None:
+      #   emotion_emb = audio_features
+      # else:
+      #   raise ValueError("text_prompt, vision_prompt or audio_prompt must be provided") 
+      # # return torch.zeros(1, desired_dim).to(audio_prompt.device) # TODO:: desired_dim 설정
+
+      # return emotion_emb
 
 class EmotionClassifierModule(nn.Module):
   def __init__(self, emotion_classes, input_size):
@@ -241,6 +247,7 @@ class EmotionClassifierModule(nn.Module):
     return emotion_dicts
     
 
+# TODO:: replace to/with IntensityPredictor .. 
 class EmotionIntensityModule(nn.Module):
   def __init__(self, emotion_classes, min_intensity=0.0, max_intensity=1.0):
     super(EmotionIntensityModule, self).__init__()
@@ -284,6 +291,7 @@ class IntensityPredictor(nn.Module):
     def forward(self, x):
       return self.net(x)
     
+    
 class IntensityQuantizer(nn.Module):
   def __init__(self, levels):
     super(IntensityQuantizer, self).__init__()
@@ -296,6 +304,7 @@ class IntensityQuantizer(nn.Module):
     scaled_intensities = normalized_intensities * (self.levels - 1)
     quantized_intensities = torch.round(scaled_intensities).long()
     return quantized_intensities
+    
     
 class IntensityModule(nn.Module):
   def __init__(self, input_dim, num_intensity_levels):
