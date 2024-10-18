@@ -54,8 +54,8 @@ def main():
   os.environ['MASTER_PORT'] = '23456'
 
   hps = utils.get_hparams()
-  mp.spawn(run, nprocs=n_gpus, args=(n_gpus, hps,))
-  # run(0, n_gpus, hps)
+  # mp.spawn(run, nprocs=n_gpus, args=(n_gpus, hps,))
+  run(0, n_gpus, hps)
 
 
 def run(rank, n_gpus, hps):
@@ -94,6 +94,8 @@ def run(rank, n_gpus, hps):
       hps.train.segment_size // hps.data.hop_length,
       n_speakers=hps.data.n_speakers,
       n_emotions=hps.data.n_emotions,
+      device_vision='cuda:0',
+      device_audio='cuda:1',
       **hps.model).cuda(rank)
   # model_dict = net_g.state_dict() # for updating parameters of emotions
   # pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict \
@@ -313,7 +315,8 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
   
   torch.cuda.empty_cache()
   
- 
+
+# TODO::cuda setting  
 def evaluate(hps, generator, eval_loader, writer_eval, emotion_encoder, emotion_classifier, emotion_modulator, text_prompt=None, vision_prompt=None, audio_prompt=None):
     generator.eval()
     with torch.no_grad():

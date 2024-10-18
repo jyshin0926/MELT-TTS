@@ -1,9 +1,7 @@
 import torch 
 from torch.nn import functional as F
-
 import commons
 
-# TODO:: emotion consistency loss 추가 (VECL-TTS)
 def emotion_consistency_loss(generated_emotion_emb, target_emotion_emb, loss_type='cosine'):
   if loss_type == 'cosine':
     loss = 1 - F.cosine_similarity(generated_emotion_emb, target_emotion_emb).mean()
