@@ -226,7 +226,6 @@ class EmotionEncoder(nn.Module):
       
       self.unload_models()
       
-      # TODO:: chk dim for each modal
       multimodal_model = attentions.MultiModalModule(text_dim=512, vision_dim=768, audio_dim=512)
       emotion_emb = multimodal_model(text_features, vision_features, audio_features)
       return emotion_emb
@@ -293,7 +292,6 @@ class EmotionIntensityModule(nn.Module):
     # return emotion_dict, enhanced_features
     return enhanced_features
   
-
 
 # emotion intensity (EmoQ-TTS) / Residual Vector Quantization
 class IntensityPredictor(nn.Module):
