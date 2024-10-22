@@ -1,13 +1,11 @@
-import copy
 import math
-import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional as F
 
 import commons
-import modules
 from modules import LayerNorm
+from typing import Tuple
    
 
 class CrossAttention(nn.Module):
@@ -30,17 +28,15 @@ class CrossAttention(nn.Module):
     V = self.value(value)
     
     # scaled dot-product attention
-    # TODO:: chk transpose order
     scores = torch.matmul(Q, K.transpose(-2, -1)/ torch.sqrt(torch.tensor(self.query_dim, dtype=torch.float32)))
     
     # TODO:: mask lr
     if mask is not None:
       scores = scores.masked_fill(mask == 0, -1e9)
     
-    attn_weights = torch.softmax(scores, dim=-1)  # apply softmax to obtain the aatn weights
-    attended_output = torch.matmul(attn_weights, V)  # weighted sum of values
+    attn_weights = torch.softmax(scores, dim=-1)  
+    attended_output = torch.matmul(attn_weights, V)  
     
-    # project the attended output
     attended_output = self.out_proj(attended_output)
     attended_output = self.dropout(attended_output)
     
@@ -56,24 +52,13 @@ class MultiModalModule(nn.Module):
     
     self.fc = nn.Linear(text_dim, text_dim)
     self.norm = nn.LayerNorm(text_dim)
-    # self.dropout = nn.Dropout(dropout)
+    self.dropout = nn.Dropout(dropout)
 
   def forward(self, text_features: torch.Tensor, vision_features: torch.Tensor, audio_features: torch.Tensor) -> torch.Tensor:
-    '''
-    Forward pass for the multi-modal model.
-    
-    Args:
-    - text_features: Tensor of shape [batch_size, text_len, text_dim]
-    - vision_features: Tensor of shape [batch_size, vision_len, vision_dim]
-    - audio_features: Tensor of shape [batch_size, audio_len, audio_dim]
-    
-    Returns:
-    - Final representation of text features after attending to vision and audio
-    '''
-    
     attended_vision, _ = self.text_vision_attn(text_features, vision_features, vision_features)
     attended_audio, _ = self.text_audio_attn(text_features, audio_features, audio_features)
-    combined_features = attended_vision + attended_audio # TODO:: concat?
+    # combined_features = attended_vision + attended_audio # TODO:: concat?
+    combined_features = torch.cat([attended_vision, attended_audio], dim=-1)
     
     combined_features = self.fc(combined_features)
     combined_features = self.norm(combined_features)
@@ -216,7 +201,7 @@ class MultiHeadAttention(nn.Module):
     x = self.conv_o(x)
     return x
 
-  def attention(self, query, key, value, mask=None):
+  def attention(self, query, key, value, mask=None) -> Tuple[torch.Tensor, torch.Tensor]:
     # reshape [b, d, t] -> [b, n_h, t, d_k]
     b, d, t_s, t_t = (*key.size(), query.size(2))
     query = query.view(b, self.n_heads, self.k_channels, t_t).transpose(2, 3)
@@ -249,7 +234,7 @@ class MultiHeadAttention(nn.Module):
     output = output.transpose(2, 3).contiguous().view(b, d, t_t) # [b, n_h, t_t, d_k] -> [b, d, t_t]
     return output, p_attn
 
-  def _matmul_with_relative_values(self, x, y):
+  def _matmul_with_relative_values(self, x: torch.Tensor, y:torch.Tensor) -> torch.Tensor:
     """
     x: [b, h, l, m]
     y: [h or 1, m, d]
@@ -258,7 +243,7 @@ class MultiHeadAttention(nn.Module):
     ret = torch.matmul(x, y.unsqueeze(0))
     return ret
 
-  def _matmul_with_relative_keys(self, x, y):
+  def _matmul_with_relative_keys(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     """
     x: [b, h, l, d]
     y: [h or 1, m, d]
@@ -268,7 +253,7 @@ class MultiHeadAttention(nn.Module):
     return ret
 
   def _get_relative_embeddings(self, relative_embeddings, length):
-    max_relative_position = 2 * self.window_size + 1
+    # max_relative_position = 2 * self.window_size + 1
     # Pad first before slice to avoid using cond ops.
     pad_length = max(length - (self.window_size + 1), 0)
     slice_start_position = max((self.window_size + 1) - length, 0)
@@ -282,7 +267,7 @@ class MultiHeadAttention(nn.Module):
     used_relative_embeddings = padded_relative_embeddings[:,slice_start_position:slice_end_position]
     return used_relative_embeddings
 
-  def _relative_position_to_absolute_position(self, x):
+  def _relative_position_to_absolute_position(self, x:torch.Tensor) -> torch.Tensor:
     """
     x: [b, h, l, 2*l-1]
     ret: [b, h, l, l]
@@ -299,13 +284,12 @@ class MultiHeadAttention(nn.Module):
     x_final = x_flat.view([batch, heads, length+1, 2*length-1])[:, :, :length, length-1:]
     return x_final
 
-  def _absolute_position_to_relative_position(self, x):
+  def _absolute_position_to_relative_position(self, x:torch.Tensor) -> torch.Tensor:
     """
     x: [b, h, l, l]
     ret: [b, h, l, 2*l-1]
     """
     batch, heads, length, _ = x.size()
-    # padd along column
     x = F.pad(x, commons.convert_pad_shape([[0, 0], [0, 0], [0, 0], [0, length-1]]))
     x_flat = x.view([batch, heads, length**2 + length*(length -1)])
     # add 0's in the beginning that will skew the elements after reshape
@@ -313,7 +297,7 @@ class MultiHeadAttention(nn.Module):
     x_final = x_flat.view([batch, heads, length, 2*length])[:,:,:,1:]
     return x_final
 
-  def _attention_bias_proximal(self, length):
+  def _attention_bias_proximal(self, length:int) -> torch.Tensor:
     """Bias for self-attention to encourage attention to close positions.
     Args:
       length: an integer scalar.
@@ -326,7 +310,7 @@ class MultiHeadAttention(nn.Module):
 
 
 class FFN(nn.Module):
-  def __init__(self, in_channels, out_channels, filter_channels, kernel_size, p_dropout=0., activation=None, causal=False):
+  def __init__(self, in_channels:int, out_channels:int, filter_channels:int, kernel_size:int, p_dropout:float=0., activation=None, causal:bool=False):
     super().__init__()
     self.in_channels = in_channels
     self.out_channels = out_channels

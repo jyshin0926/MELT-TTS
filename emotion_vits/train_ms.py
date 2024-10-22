@@ -190,10 +190,9 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
       eid = eid.cuda(rank, non_blocking=True)
 
 
-    # TODO: gen_emo_emb 대신 emo_enc 를 리턴해서 여기서 gen_emo_emb 생성
     with autocast(enabled=hps.train.fp16_run):
       y_hat, l_length, attn, ids_slice, x_mask, z_mask,\
-      (z, z_p, m_p, logs_p, m_q, logs_q), _ = net_g(x, x_lengths, spec, spec_lengths, speakers,
+      (z, z_p, m_p, logs_p, m_q, logs_q) = net_g(x, x_lengths, spec, spec_lengths, speakers,
                                                  text_prompt=text_prompt,
                                                  vision_prompt=vision_prompt,  
                                                  audio_prompt=audio_prompt,
@@ -241,7 +240,7 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
         loss_kl = kl_loss(z_p, logs_q, m_p, logs_p, z_mask) * hps.train.c_kl
         
         gen_emo_emb = emotion_encoder(y_hat).squeeze(1) # TODO:: [batch, embedding_dim]
-        tgt_emo_emb = emotion_encoder(y).squeeze(1) # TODO:: [batch, embedding_dim]
+        tgt_emo_emb = emotion_encoder(y).squeeze(1)
         
         gen_emotion_dicts = emotion_classifier(gen_emo_emb)
         tgt_emotion_dicts = emotion_classifier(tgt_emo_emb)

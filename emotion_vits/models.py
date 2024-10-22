@@ -140,20 +140,21 @@ class DurationPredictor(nn.Module):
 
 
 class EmotionEncoder(nn.Module):
-  def __init__(self,vision_model_path, audio_model_path, device_vision='cuda:0', device_audio='cuda:1'):
-
-    super(EmotionEncoder, self).__init__()
+  def __init__(self,vision_model_path:str="/workspace/jaeyoung/checkpoints/onepeace/mmtts_vl_1013/checkpoint_last.pt", 
+               audio_model_path:str="/workspace/jaeyoung/checkpoints/onepeace/esd_mmtts_al_1014/checkpoint_last.pt", 
+               device_vision:str='cuda:0', device_audio:str='cuda:1'):
+    super().__init__()
 
     # TODO:: extract embeddings in advance to save memory
     self.vision_model = from_pretrained(
-        model_name_or_path="/workspace/jaeyoung/checkpoints/onepeace/mmtts_vl_1013/checkpoint_last.pt",
+        model_name_or_path=vision_model_path,
         model_type="one_peace_retrieval",
         device=device_vision,
         dtype="float16"
     )
     
     self.audio_model = from_pretrained(
-        model_name_or_path="/workspace/jaeyoung/checkpoints/onepeace/esd_mmtts_al_1014/checkpoint_last.pt",
+        model_name_or_path=audio_model_path,
         model_type="one_peace_retrieval",
         device=device_audio,
         dtype="float16"
@@ -173,19 +174,8 @@ class EmotionEncoder(nn.Module):
       
     torch.cuda.empty_cache()
     
-  def forward(self, text_prompt=None, vision_prompt=None, audio_prompt=None):
-      """
-      Extracts and combines features from text and vision prompts.
-
-      Args:
-      text_prompt (str): Text description, e.g., "She says with her beautiful smile."
-      vision_prompt (str): Path to the face image file, e.g., "image1.jpg".
-      audio_prompt (str, optional): Path to the audio file, e.g., "audio1.wav".
-
-      Returns:
-      torch.Tensor: Combined emotion embedding.
-      """      
-      text_batch_size = 2   # Adjust based on your GPU capacity
+  def forward(self, text_prompt:str=None, vision_prompt:str=None, audio_prompt:str=None) -> torch.Tensor:   
+      text_batch_size = 2
       image_batch_size = 2  
       audio_batch_size = 2  
 
@@ -233,7 +223,7 @@ class EmotionEncoder(nn.Module):
 
 class EmotionClassifierModule(nn.Module):
   def __init__(self, emotion_classes, input_size):
-    super(EmotionClassifierModule, self).__init__()
+    super().__init__()
     self.emotion_classes = emotion_classes
     self.classifier = nn.Linear(input_size, len(emotion_classes)) # input size depends on the emotion_emb
     
@@ -249,54 +239,10 @@ class EmotionClassifierModule(nn.Module):
     return emotion_dicts
     
 
-# TODO:: replace to/with IntensityPredictor .. 
-# class EmotionIntensityModule(nn.Module):
-#   def __init__(self, emotion_classes, min_intensity=0.0, max_intensity=1.0):
-#     super(EmotionIntensityModule, self).__init__()
-#     self.min_intensity = min_intensity
-#     self.max_intensity = max_intensity
-#     self.emotion_classes = emotion_classes
-    
-#     # TODO:: embedding size setting
-#     self.emotion_weights = nn.ModuleDict({emotion: nn.Linear(1536, 1536) for emotion in self.emotion_classes}) # size demends on the emotion_emb (Assuming enc size as 768*2)
-    
-#   def forward(self, emotion_emb, emotion_dict, intensitiy_val=None):
-#     combined_emotion_emb = torch.zeros_like(emotion_emb)
-#     for emotion, prob in emotion_dict.items():
-#       emotion_emb_mod = self.emotion_weights[emotion](emotion_emb)
-#       weighted_emotion_emb = emotion_emb_mod * prob
-#       combined_emotion_emb += weighted_emotion_emb
-    
-#     if intensity_val is not None:
-#       intensity_val = torch.clamp(intensity_val, self.min_intensity, self.max_intensity)
-#     else:
-#       intensity_val = sum([p for p in emotion_dict.values()])/len(emotion_dict)
-    
-#     modulated_emotion_emb = combined_emotion_emb * intensity_val
-    
-#     return modulated_emotion_emb
-
-
-class EmotionIntensityModule(nn.Module):
-  def __init__(self, vision_model_path, audio_model_path, emotion_classes, input_dim, num_intensity_levels):
-    super(EmotionIntensityModule, self).__init__()
-    self.emotion_encoder = EmotionEncoder(vision_model_path, audio_model_path)
-    self.emotion_classifier = EmotionClassifierModule(emotion_classes, input_dim)
-    self.intensity_module = IntensityModule(input_dim, num_intensity_levels)
-  
-  def forward(self, text_prompt, vision_prompt, audio_prompt):
-    emotion_emb = self.emotion_encoder(text_prompt, vision_prompt, audio_prompt)
-    emotion_dict = self.emotion_classifier(emotion_emb)
-    enhanced_features = self.intensity_module(emotion_emb, emotion_dict)
-    
-    # return emotion_dict, enhanced_features
-    return enhanced_features
-  
-
 # emotion intensity (EmoQ-TTS) / Residual Vector Quantization
 class IntensityPredictor(nn.Module):
   def __init__(self, input_dim, output_dim):
-    super(IntensityPredictor, self).__init__()
+    super().__init__()
     self.net = nn.Sequential(
             nn.Linear(input_dim, 128),
             nn.ReLU(),
@@ -307,13 +253,13 @@ class IntensityPredictor(nn.Module):
             nn.Linear(64, output_dim)
     )
     
-    def forward(self, x):
-      return self.net(x)
+  def forward(self, x):
+    return self.net(x)
     
     
 class IntensityQuantizer(nn.Module):
   def __init__(self, levels):
-    super(IntensityQuantizer, self).__init__()
+    super().__init__()
     self.levels = levels
     
   def forward(self, intensities):
@@ -327,21 +273,32 @@ class IntensityQuantizer(nn.Module):
     
 class IntensityModule(nn.Module):
   def __init__(self, input_dim:int, num_intensity_levels:int):
-    super(IntensityModule, self).__init__()
+    super().__init__()
     self.intensity_predictor = IntensityPredictor(input_dim, 1)
     self.intensity_quantizer = IntensityQuantizer(num_intensity_levels)
     self.intensity_embeddings = nn.Embedding(num_intensity_levels, input_dim)
     
-  def forward(self, phoneme_features, emotion_dict): # TODO:: emotion_dict 사용하기
+  def forward(self, phoneme_features):
     raw_intensities = self.intensity_predictor(phoneme_features)
     quantized_intensities = self.intensity_quantizer(raw_intensities)
     intensity_embeddings = self.intensity_embeddings(quantized_intensities)
     
     enhanced_features = phoneme_features + intensity_embeddings # TODO:: + -> * / mixing
     return enhanced_features
-  
-# TODO:: AVDEncoder (EmoSphere-TTS; Arousal, Valence, Dominance)
 
+class EmotionIntensityModule(nn.Module):
+  def __init__(self, vision_model_path, audio_model_path, emotion_classes, input_dim, num_intensity_levels):
+    super().__init__()
+    self.emotion_encoder = EmotionEncoder(vision_model_path, audio_model_path)
+    self.emotion_classifier = EmotionClassifierModule(emotion_classes, input_dim)
+    self.intensity_module = IntensityModule(input_dim, num_intensity_levels)
+  
+  def forward(self, text_prompt, vision_prompt, audio_prompt):
+    emotion_emb = self.emotion_encoder(text_prompt, vision_prompt, audio_prompt)
+    emotion_dict = self.emotion_classifier(emotion_emb)
+    enhanced_features = self.intensity_module(emotion_emb)
+    
+    return enhanced_features, emotion_dict
 
 class TextEncoder(nn.Module):
   def __init__(self,
@@ -470,7 +427,8 @@ class Generator(torch.nn.Module):
         self.num_kernels = len(resblock_kernel_sizes)
         self.num_upsamples = len(upsample_rates)
         self.conv_pre = Conv1d(initial_channel, upsample_initial_channel, 7, 1, padding=3)
-        resblock = modules.ResBlock1 if resblock == '1' else modules.ResBlock2
+        # resblock = modules.ResBlock1 if resblock == '1' else modules.ResBlock2
+        resblock = modules.ResBlock1
 
         self.ups = nn.ModuleList()
         for i, (u, k) in enumerate(zip(upsample_rates, upsample_kernel_sizes)):
@@ -608,11 +566,9 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 
         return y_d_rs, y_d_gs, fmap_rs, fmap_gs
 
-class SynthesizerTrn(nn.Module):
-  """
-  Synthesizer for Training
-  """
 
+# TODO:: pretrained backbone arc -> covered w/ adding new modules
+class SynthesizerTrn(nn.Module):
   def __init__(self, 
     n_vocab,
     spec_channels,
@@ -694,11 +650,8 @@ class SynthesizerTrn(nn.Module):
 
   def forward(self, x, x_lengths, y, y_lengths, sid=None, text_prompt=None, vision_prompt=None, audio_prompt=None, eid=None):
 
-    x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
-    
-    emotion_emb = self.emotion_enc(text_prompt=text_prompt, vision_prompt=vision_prompt, audio_prompt=audio_prompt)
-    emotion_dict = self.emotion_classifier(emotion_emb)
-    modulated_emotion_emb = self.emotion_intensity(text_prompt, vision_prompt, audio_prompt) # TODO:: intensity 모듈 변경에 따라 input 변경
+    x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)    
+    modulated_emotion_emb, _ = self.emotion_intensity(text_prompt, vision_prompt, audio_prompt) # TODO:: use emotion_dict
     
     if self.n_speakers > 0:
       g = self.emb_g(sid).unsqueeze(-1) # [b, h, 1]
@@ -738,14 +691,11 @@ class SynthesizerTrn(nn.Module):
 
     z_slice, ids_slice = commons.rand_slice_segments(z, y_lengths, self.segment_size)
     o = self.dec(z_slice, g=g)
-    return o, l_length, attn, ids_slice, x_mask, y_mask, (z, z_p, m_p, logs_p, m_q, logs_q), (None, None)  # TODO:: Emotion Embeddings 별도 처리
+    return o, l_length, attn, ids_slice, x_mask, y_mask, (z, z_p, m_p, logs_p, m_q, logs_q)
 
-  def infer(self, x, x_lengths, sid=None, noise_scale=1, length_scale=1, noise_scale_w=1., max_len=None, vision_prompt=None, audio_prompt=None, eid=None):
+  def infer(self, x, x_lengths, sid=None, noise_scale=1, length_scale=1, noise_scale_w=1., max_len=None, vision_prompt=None, audio_prompt=None, text_prompt=None, eid=None):
     x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
-    
-    emotion_emb = self.emotion_enc(text_prompt=x, vision_prompt=vision_prompt, audio_prompt=audio_prompt)
-    emotion_dict = self.emotion_classifier(emotion_emb)
-    modulated_emotion_emb = self.emotion_intensity(emotion_emb, emotion_dict) # TODO:: intensity 모듈 변경에 따라 input 변경
+    modulated_emotion_emb, _ = self.emotion_intensity(text_prompt, vision_prompt, audio_prompt)
     
     if self.n_speakers > 0:
       g = self.emb_g(sid).unsqueeze(-1) # [b, h, 1]
@@ -777,17 +727,13 @@ class SynthesizerTrn(nn.Module):
     g_src = self.emb_g(sid_src).unsqueeze(-1)
     g_tgt = self.emb_g(sid_tgt).unsqueeze(-1)
 
-    emotion_emb_src = self.emotion_enc(text_prompt=text_prompt, vision_prompt=vision_prompt, audio_prompt=audio_prompt)
-    emotion_dict_src = self.emotion_classifier(emotion_emb_src)
-    modulated_emotion_emb_src = self.emotion_intensity(emotion_emb_src, emotion_dict_src)
+    modulated_emotion_emb_src, _ = self.emotion_intensity(text_prompt=text_prompt, vision_prompt=vision_prompt, audio_prompt=audio_prompt)
     modulated_emotion_emb_src = torch.cat([modulated_emotion_emb_src, g_src], dim=-1)
 
     z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g_src)
     z_p = self.flow(z, y_mask, g=g_src)
     
-    emotion_emb_tgt = self.emotion_enc(text_prompt=text_prompt, vision_prompt=vision_prompt, audio_prompt=audio_prompt)
-    emotion_dict_tgt = self.emotion_classifier(emotion_emb_tgt)
-    modulated_emotion_emb_tgt = self.emotion_intensity(emotion_emb_tgt, emotion_dict_tgt)
+    modulated_emotion_emb_tgt, _ = self.emotion_intensity(text_prompt=text_prompt, vision_prompt=vision_prompt, audio_prompt=audio_prompt)
     modulated_emotion_emb_tgt = torch.cat([modulated_emotion_emb_tgt, g_tgt], dim=-1)
     
     z_hat = self.flow(z_p, y_mask, g=g_tgt, reverse=True)

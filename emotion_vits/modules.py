@@ -1,7 +1,5 @@
-import copy
 import math
 import numpy as np
-import scipy
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -226,33 +224,6 @@ class ResBlock1(torch.nn.Module):
         for l in self.convs1:
             remove_weight_norm(l)
         for l in self.convs2:
-            remove_weight_norm(l)
-
-
-class ResBlock2(torch.nn.Module):
-    def __init__(self, channels, kernel_size=3, dilation=(1, 3)):
-        super(ResBlock2, self).__init__()
-        self.convs = nn.ModuleList([
-            weight_norm(Conv1d(channels, channels, kernel_size, 1, dilation=dilation[0],
-                               padding=get_padding(kernel_size, dilation[0]))),
-            weight_norm(Conv1d(channels, channels, kernel_size, 1, dilation=dilation[1],
-                               padding=get_padding(kernel_size, dilation[1])))
-        ])
-        self.convs.apply(init_weights)
-
-    def forward(self, x, x_mask=None):
-        for c in self.convs:
-            xt = F.leaky_relu(x, LRELU_SLOPE)
-            if x_mask is not None:
-                xt = xt * x_mask
-            xt = c(xt)
-            x = xt + x
-        if x_mask is not None:
-            x = x * x_mask
-        return x
-
-    def remove_weight_norm(self):
-        for l in self.convs:
             remove_weight_norm(l)
 
 
