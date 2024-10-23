@@ -142,7 +142,7 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         text_prompt = self.get_text_prompt(text_prompt)
         vision_prompt = self.get_vision_prompt(vision_prompt)
         # audio_prompt = self.get_audio_prompt(audiopath)
-        audio_prompt = spec
+        audio_prompt = wav
 
         return (text, spec, wav, sid, text_prompt, vision_prompt, audio_prompt)
     
@@ -542,8 +542,9 @@ class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
           num_samples_bucket = self.num_samples_per_bucket[i]
   
           # add extra samples to make it evenly divisible
-          rem = num_samples_bucket - len_bucket
-          ids_bucket = ids_bucket + ids_bucket * (rem // len_bucket) + ids_bucket[:(rem % len_bucket)]
+          if len_bucket > 0 :
+            rem = num_samples_bucket - len_bucket
+            ids_bucket = ids_bucket + ids_bucket * (rem // len_bucket) + ids_bucket[:(rem % len_bucket)]
   
           # subsample
           ids_bucket = ids_bucket[self.rank::self.num_replicas]
