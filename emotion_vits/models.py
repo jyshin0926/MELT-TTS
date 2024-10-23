@@ -146,28 +146,36 @@ class EmotionEncoder(nn.Module):
                audio_model_path:str="/workspace/jaeyoung/checkpoints/onepeace/esd_mmtts_al_1014/checkpoint_last.pt", 
                device_vision:str='cuda:0', device_audio:str='cuda:0'):
     super().__init__()
+    
+    self.vision_model_path = vision_model_path
+    self.audio_model_path = audio_model_path
+    self.device_vision = device_vision
+    self.device_audio = device_audio
 
-    # TODO:: extract embeddings in advance to save memory
+  def load_vision_models(self):
     self.vision_model = from_pretrained(
-        model_name_or_path=vision_model_path,
+        model_name_or_path=self.vision_model_path,
         model_type="one_peace_retrieval",
-        device=device_vision,
+        device=self.device_vision,
         dtype="float16"
     )
     
+  def load_audio_models(self):
     self.audio_model = from_pretrained(
-        model_name_or_path=audio_model_path,
+        model_name_or_path=self.audio_model_path,
         model_type="one_peace_retrieval",
-        device=device_audio,
+        device=self.device_audio,
         dtype="float16"
     )
     
-  def unload_models(self):
+  def unload_vision_models(self):
     if self.vision_model is not None:
       self.vision_model.to('cpu')
       del self.vision_model
       self.vision_model = None
       print("vision model moved to cpu and unloaded from gpu.")
+  
+  def unload_audio_models(self):  
     if self.audio_model is not None:  
       self.audio_model.to('cpu') 
       del self.audio_model
@@ -182,6 +190,7 @@ class EmotionEncoder(nn.Module):
       audio_batch_size = 10
 
       with torch.no_grad():
+        self.load_vision_models()
         if vision_prompt is not None:
           all_image_features = []
           for i in range(0, len(vision_prompt), image_batch_size):
@@ -193,8 +202,9 @@ class EmotionEncoder(nn.Module):
         else:
           vision_features = None
       
-        self.unload_models()
+        self.unload_vision_models()
         
+        self.load_audio_models()
         if audio_prompt is not None:
           all_audio_features = []
           for i in range(0, len(audio_prompt), audio_batch_size):
@@ -217,7 +227,7 @@ class EmotionEncoder(nn.Module):
         else:
           text_features = None
       
-      self.unload_models()
+        self.unload_audio_models()
       
       multimodal_model = attentions.MultiModalModule(text_dim=512, vision_dim=768, audio_dim=512)
       emotion_emb = multimodal_model(text_features, vision_features, audio_features)

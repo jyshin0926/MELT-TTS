@@ -262,14 +262,22 @@ def plot_alignment_to_numpy(alignment, info=None):
 
 
 def load_wav_to_torch(full_path, target_sr=22050):
-  # sampling_rate, data = read(full_path)
-  # sampling_rate, data = sf.read(full_path)
-  audio, sr = torchaudio.load(full_path)
-  if sr != target_sr:
-    resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=target_sr)
-    audio = resampler(audio)
-  return audio.squeeze(0), target_sr
-  # return torch.FloatTensor(data.astype(np.float32)), sampling_rate
+    audio, sr = torchaudio.load(full_path)
+    
+    # Resample if the sampling rate doesn't match the target
+    if sr != target_sr:
+        resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=target_sr)
+        audio = resampler(audio)
+    
+    # If stereo, convert to mono by averaging the two channels
+    if audio.shape[0] > 1:  # If stereo
+        audio = torch.mean(audio, dim=0, keepdim=True)
+    
+    # Print the shape for debugging
+    print(f"Audio shape after loading (before processing): {audio.shape}")
+    
+    return audio, target_sr  # Keep audio as 2D [1, num_samples] for mono
+
 
 
 def load_filepaths_and_text(datasets: HParams):

@@ -48,26 +48,65 @@ mel_basis = {}
 hann_window = {}
 
 
+# def spectrogram_torch(y, n_fft, sampling_rate, hop_size, win_size, center=False):
+#     if torch.min(y) < -1.:
+#         print('min value is ', torch.min(y))
+#     if torch.max(y) > 1.:
+#         print('max value is ', torch.max(y))
+
+#     global hann_window
+#     dtype_device = str(y.dtype) + '_' + str(y.device)
+#     wnsize_dtype_device = str(win_size) + '_' + dtype_device
+#     if wnsize_dtype_device not in hann_window:
+#         hann_window[wnsize_dtype_device] = torch.hann_window(win_size).to(dtype=y.dtype, device=y.device)
+
+#     y = torch.nn.functional.pad(y.unsqueeze(1), (int((n_fft-hop_size)/2), int((n_fft-hop_size)/2)), mode='reflect')
+#     y = y.squeeze(1)
+
+#     spec = torch.stft(y, n_fft, hop_length=hop_size, win_length=win_size, window=hann_window[wnsize_dtype_device],
+#                       center=center, pad_mode='reflect', normalized=False, onesided=True, return_complex=True)
+    
+#     if spec.dim() == 3:
+#         spec = spec.squeeze(0)
+
+#     spec = torch.sqrt(spec.pow(2).sum(-1) + 1e-6)
+#     return spec
+
 def spectrogram_torch(y, n_fft, sampling_rate, hop_size, win_size, center=False):
+    # Check for audio value ranges
     if torch.min(y) < -1.:
         print('min value is ', torch.min(y))
     if torch.max(y) > 1.:
         print('max value is ', torch.max(y))
 
     global hann_window
-    dtype_device = str(y.dtype) + '_' + str(y.device)
-    wnsize_dtype_device = str(win_size) + '_' + dtype_device
+    dtype_device = f"{y.dtype}_{y.device}"
+    wnsize_dtype_device = f"{win_size}_{dtype_device}"
     if wnsize_dtype_device not in hann_window:
         hann_window[wnsize_dtype_device] = torch.hann_window(win_size).to(dtype=y.dtype, device=y.device)
 
-    y = torch.nn.functional.pad(y.unsqueeze(1), (int((n_fft-hop_size)/2), int((n_fft-hop_size)/2)), mode='reflect')
-    y = y.squeeze(1)
+    # Pad audio for STFT
+    pad = int((n_fft - hop_size) / 2)
+    y_padded = torch.nn.functional.pad(y.unsqueeze(1), (pad, pad), mode='reflect')
+    y_padded = y_padded.squeeze(1)
+    print(f"Padded audio shape: {y_padded.shape}")  # Expected: [1, num_samples + 2*pad]
 
-    spec = torch.stft(y, n_fft, hop_length=hop_size, win_length=win_size, window=hann_window[wnsize_dtype_device],
+    # Compute the STFT
+    spec = torch.stft(y_padded, n_fft, hop_length=hop_size, win_length=win_size, window=hann_window[wnsize_dtype_device],
                       center=center, pad_mode='reflect', normalized=False, onesided=True, return_complex=True)
+    print(f"STFT output shape: {spec.shape}")  # Expected: [1, freq_bins, time_frames]
 
-    spec = torch.sqrt(spec.pow(2).sum(-1) + 1e-6)
+    # Compute magnitude spectrogram
+    spec = spec.abs()
+    print(f"Spectrogram shape after magnitude: {spec.shape}")  # Expected: [1, freq_bins, time_frames]
+
+    # Remove channel dimension if mono
+    if spec.size(0) == 1:
+        spec = spec.squeeze(0)
+        print(f"Spectrogram shape after squeezing channel dim: {spec.shape}")  # Expected: [freq_bins, time_frames]
+
     return spec
+
 
 
 def spec_to_mel_torch(spec, n_fft, num_mels, sampling_rate, fmin, fmax):
@@ -104,7 +143,8 @@ def mel_spectrogram_torch(y, n_fft, num_mels, sampling_rate, hop_size, win_size,
     spec = torch.stft(y, n_fft, hop_length=hop_size, win_length=win_size, window=hann_window[wnsize_dtype_device],
                       center=center, pad_mode='reflect', normalized=False, onesided=True)
 
-    spec = torch.sqrt(spec.pow(2).sum(-1) + 1e-6)
+    # spec = torch.sqrt(spec.pow(2).sum(-1) + 1e-6)
+    spec = spec.abs()
 
     spec = torch.matmul(mel_basis[fmax_dtype_device], spec)
     spec = spectral_normalize_torch(spec)
