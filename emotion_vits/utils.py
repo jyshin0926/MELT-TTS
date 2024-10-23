@@ -49,7 +49,7 @@ def get_hparams(init=True):
   return hparams
 
 
-def get_hparams_from_dir(model_dir):
+def get_hparams_from_dir(model_dir: str):
   config_save_path = os.path.join(model_dir, "config.json")
   with open(config_save_path, "r") as f:
     data = f.read()
@@ -60,7 +60,7 @@ def get_hparams_from_dir(model_dir):
   return hparams
 
 
-def get_hparams_from_file(config_path):
+def get_hparams_from_file(config_path: str):
   with open(config_path, "r") as f:
     data = f.read()
   config = json.loads(data)
@@ -69,7 +69,7 @@ def get_hparams_from_file(config_path):
   return hparams
 
 
-def check_git_hash(model_dir):
+def check_git_hash(model_dir: str):
   source_dir = os.path.dirname(os.path.realpath(__file__))
   if not os.path.exists(os.path.join(source_dir, ".git")):
     logger.warn("{} is not a git repository, therefore hash value comparison will be ignored.".format(
@@ -89,7 +89,7 @@ def check_git_hash(model_dir):
     open(path, "w").write(cur_hash)
 
 
-def get_logger(model_dir, filename="train.log"):
+def get_logger(model_dir: str, filename:str="train.log"):
   global logger
   logger = logging.getLogger(os.path.basename(model_dir))
   logger.setLevel(logging.DEBUG)
@@ -272,10 +272,6 @@ def load_wav_to_torch(full_path, target_sr=22050):
   # return torch.FloatTensor(data.astype(np.float32)), sampling_rate
 
 
-# def load_filepaths_and_text(filename, split="|"):
-#   with open(filename, encoding='utf-8') as f:
-#     filepaths_and_text = [line.strip().split(split) for line in f]
-#   return filepaths_and_text
 def load_filepaths_and_text(datasets: HParams):
   dset = []
   for dset_name, dset_dict in datasets.items():

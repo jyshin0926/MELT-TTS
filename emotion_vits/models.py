@@ -182,18 +182,6 @@ class EmotionEncoder(nn.Module):
       audio_batch_size = 10
 
       with torch.no_grad():
-        if text_prompt is not None:
-          all_text_features = []
-          for i in range(0, len(text_prompt), text_batch_size):
-            batch_text_queries = text_prompt[i:i + text_batch_size]
-            text_tokens = self.audio_model.process_text(batch_text_queries)
-            batch_text_features = self.audio_model.extract_text_features(text_tokens)
-            all_text_features.append(batch_text_features)
-          text_features = torch.cat(all_text_features, dim=0)
-        else:
-          text_features = None
-        
-        
         if vision_prompt is not None:
           all_image_features = []
           for i in range(0, len(vision_prompt), image_batch_size):
@@ -204,6 +192,8 @@ class EmotionEncoder(nn.Module):
           vision_features = torch.cat(all_image_features, dim=0)        
         else:
           vision_features = None
+      
+        self.unload_models()
         
         if audio_prompt is not None:
           all_audio_features = []
@@ -215,6 +205,17 @@ class EmotionEncoder(nn.Module):
           audio_features = torch.cat(all_audio_features, dim=0)
         else:
           audio_features = None
+        
+        if text_prompt is not None:
+          all_text_features = []
+          for i in range(0, len(text_prompt), text_batch_size):
+            batch_text_queries = text_prompt[i:i + text_batch_size]
+            text_tokens = self.audio_model.process_text(batch_text_queries)
+            batch_text_features = self.audio_model.extract_text_features(text_tokens)
+            all_text_features.append(batch_text_features)
+          text_features = torch.cat(all_text_features, dim=0)
+        else:
+          text_features = None
       
       self.unload_models()
       
@@ -586,17 +587,17 @@ class SynthesizerTrn(nn.Module):
     resblock_kernel_sizes, 
     resblock_dilation_sizes, 
     upsample_rates, 
-    upsample_initial_channel, 
-    upsample_kernel_sizes,
-    n_speakers,
-    n_emotions, 
-    vision_model_path,
-    audio_model_path,
-    emotion_classes,
-    gin_channels=0,
-    use_sdp=True,
-    device_vision='cuda:0',
-    device_audio='cuda:0',
+    upsample_initial_channel:int, 
+    upsample_kernel_sizes:int,
+    n_speakers:int,
+    n_emotions:int, 
+    vision_model_path:str,
+    audio_model_path:str,
+    emotion_classes:Dict,
+    gin_channels:int=0,
+    use_sdp:bool=True,
+    device_vision:str='cuda:0',
+    device_audio:str='cuda:0',
     **kwargs):
 
     super().__init__()

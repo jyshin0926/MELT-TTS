@@ -49,7 +49,7 @@ def main():
   assert torch.cuda.is_available(), "CPU training is not allowed."
 
   # n_gpus = torch.cuda.device_count()
-  n_gpus = 2
+  n_gpus = 1
   os.environ['MASTER_ADDR'] = 'localhost'
   os.environ['MASTER_PORT'] = '23456'
 
@@ -95,7 +95,7 @@ def run(rank, n_gpus, hps):
       n_speakers=hps.data.n_speakers,
       n_emotions=hps.data.n_emotions,
       device_vision='cuda:0',
-      device_audio='cuda:1',
+      device_audio='cuda:0',
       **hps.model).cuda(rank)
   # model_dict = net_g.state_dict() # for updating parameters of emotions
   # pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict \
