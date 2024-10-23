@@ -1,5 +1,7 @@
 import copy
 import math
+from typing import Dict
+
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -103,7 +105,7 @@ class StochasticDurationPredictor(nn.Module):
 
 
 class DurationPredictor(nn.Module):
-  def __init__(self, in_channels, filter_channels, kernel_size, p_dropout, gin_channels=0):
+  def __init__(self, in_channels:int, filter_channels:int, kernel_size:int, p_dropout:float, gin_channels:int=0):
     super().__init__()
 
     self.in_channels = in_channels
@@ -142,7 +144,7 @@ class DurationPredictor(nn.Module):
 class EmotionEncoder(nn.Module):
   def __init__(self,vision_model_path:str="/workspace/jaeyoung/checkpoints/onepeace/mmtts_vl_1013/checkpoint_last.pt", 
                audio_model_path:str="/workspace/jaeyoung/checkpoints/onepeace/esd_mmtts_al_1014/checkpoint_last.pt", 
-               device_vision:str='cuda:0', device_audio:str='cuda:1'):
+               device_vision:str='cuda:0', device_audio:str='cuda:0'):
     super().__init__()
 
     # TODO:: extract embeddings in advance to save memory
@@ -175,9 +177,9 @@ class EmotionEncoder(nn.Module):
     torch.cuda.empty_cache()
     
   def forward(self, text_prompt:str=None, vision_prompt:str=None, audio_prompt:str=None) -> torch.Tensor:   
-      text_batch_size = 2
-      image_batch_size = 2  
-      audio_batch_size = 2  
+      text_batch_size = 20
+      image_batch_size = 10  
+      audio_batch_size = 10
 
       with torch.no_grad():
         if text_prompt is not None:
@@ -222,7 +224,7 @@ class EmotionEncoder(nn.Module):
     
 
 class EmotionClassifierModule(nn.Module):
-  def __init__(self, emotion_classes, input_size):
+  def __init__(self, emotion_classes:Dict, input_size):
     super().__init__()
     self.emotion_classes = emotion_classes
     self.classifier = nn.Linear(input_size, len(emotion_classes)) # input size depends on the emotion_emb
@@ -241,7 +243,7 @@ class EmotionClassifierModule(nn.Module):
 
 # emotion intensity (EmoQ-TTS) / Residual Vector Quantization
 class IntensityPredictor(nn.Module):
-  def __init__(self, input_dim, output_dim):
+  def __init__(self, input_dim: int, output_dim: int):
     super().__init__()
     self.net = nn.Sequential(
             nn.Linear(input_dim, 128),
@@ -594,7 +596,7 @@ class SynthesizerTrn(nn.Module):
     gin_channels=0,
     use_sdp=True,
     device_vision='cuda:0',
-    device_audio='cuda:1',
+    device_audio='cuda:0',
     **kwargs):
 
     super().__init__()
@@ -648,7 +650,7 @@ class SynthesizerTrn(nn.Module):
     if n_speakers > 1:
       self.emb_g = nn.Embedding(n_speakers, gin_channels)
 
-  def forward(self, x, x_lengths, y, y_lengths, sid=None, text_prompt=None, vision_prompt=None, audio_prompt=None, eid=None):
+  def forward(self, x, x_lengths, y, y_lengths, sid=None, text_prompt=None, vision_prompt=None, audio_prompt=None):
 
     x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)    
     modulated_emotion_emb, _ = self.emotion_intensity(text_prompt, vision_prompt, audio_prompt) # TODO:: use emotion_dict
@@ -659,7 +661,7 @@ class SynthesizerTrn(nn.Module):
       g = None
 
     if g is not None:
-      modulated_emotion_emb = torch.cat([modulated_emotion_emb, g],dim=-1)
+      modulated_emotion_emb = torch.cat([modulated_emotion_emb, g],dim=-1) # TODO:: eid vs modulated_emotion_emb
       
     z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g)
     z_p = self.flow(z, y_mask, g=g)
@@ -693,7 +695,8 @@ class SynthesizerTrn(nn.Module):
     o = self.dec(z_slice, g=g)
     return o, l_length, attn, ids_slice, x_mask, y_mask, (z, z_p, m_p, logs_p, m_q, logs_q)
 
-  def infer(self, x, x_lengths, sid=None, noise_scale=1, length_scale=1, noise_scale_w=1., max_len=None, vision_prompt=None, audio_prompt=None, text_prompt=None, eid=None):
+  # TODO:: use eid
+  def infer(self, x, x_lengths, sid=None, noise_scale=1, length_scale=1, noise_scale_w=1., max_len=None, vision_prompt=None, audio_prompt=None, text_prompt=None):
     x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
     modulated_emotion_emb, _ = self.emotion_intensity(text_prompt, vision_prompt, audio_prompt)
     
@@ -722,7 +725,8 @@ class SynthesizerTrn(nn.Module):
     o = self.dec((z * y_mask)[:,:,:max_len], g=g)
     return o, attn, y_mask, (z, z_p, m_p, logs_p)
 
-  def voice_conversion(self, y, y_lengths, sid_src, sid_tgt, text_prompt=None, vision_prompt=None, audio_prompt=None, eid=None):
+  # TODO:: use eid
+  def voice_conversion(self, y, y_lengths, sid_src, sid_tgt, text_prompt=None, vision_prompt=None, audio_prompt=None):
     assert self.n_speakers > 0, "n_speakers have to be larger than 0."
     g_src = self.emb_g(sid_src).unsqueeze(-1)
     g_tgt = self.emb_g(sid_tgt).unsqueeze(-1)

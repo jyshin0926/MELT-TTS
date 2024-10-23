@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:32'
 import json
 import argparse
@@ -104,7 +104,6 @@ def run(rank, n_gpus, hps):
 
   net_d = MultiPeriodDiscriminator(hps.model.use_spectral_norm).cuda(rank)
   
-  # TODO:: define emotion modules 
   emotion_encoder = EmotionEncoder(
     vision_model_path=hps.model.vision_model_path,
     audio_model_path=hps.model.audio_model_path
@@ -172,8 +171,8 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
   net_g.train()
   net_d.train()
   
-  # TODO:: check eid in models.py
-  for batch_idx, (x, x_lengths, spec, spec_lengths, y, y_lengths, speakers, text_prompt, vision_prompt, audio_prompt, eid) in enumerate(train_loader):
+  # TODO:: add 'eid' depends on data_utils.py, models.py
+  for batch_idx, (x, x_lengths, spec, spec_lengths, y, y_lengths, speakers, text_prompt, vision_prompt, audio_prompt) in enumerate(train_loader):
     x, x_lengths = x.cuda(rank, non_blocking=True), x_lengths.cuda(rank, non_blocking=True)
     spec, spec_lengths = spec.cuda(rank, non_blocking=True), spec_lengths.cuda(rank, non_blocking=True)
     y, y_lengths = y.cuda(rank, non_blocking=True), y_lengths.cuda(rank, non_blocking=True)
@@ -186,8 +185,8 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
     if audio_prompt is not None:
       audio_prompt = audio_prompt.cuda(rank, non_blocking=True)
     
-    if eid is not None:
-      eid = eid.cuda(rank, non_blocking=True)
+    # if eid is not None:
+    #   eid = eid.cuda(rank, non_blocking=True)
 
 
     with autocast(enabled=hps.train.fp16_run):
@@ -195,8 +194,8 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
       (z, z_p, m_p, logs_p, m_q, logs_q) = net_g(x, x_lengths, spec, spec_lengths, speakers,
                                                  text_prompt=text_prompt,
                                                  vision_prompt=vision_prompt,  
-                                                 audio_prompt=audio_prompt,
-                                                 eid=eid)
+                                                 audio_prompt=audio_prompt)
+                                                #  eid=eid)
 
       mel = spec_to_mel_torch(
           spec, 
@@ -319,7 +318,7 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
 def evaluate(hps, generator, eval_loader, writer_eval, emotion_encoder, emotion_classifier, emotion_modulator, text_prompt=None, vision_prompt=None, audio_prompt=None):
     generator.eval()
     with torch.no_grad():
-      for batch_idx, (x, x_lengths, spec, spec_lengths, y, y_lengths, speakers, text_prompt, vision_prompt, audio_prompt, eid) in enumerate(eval_loader):
+      for batch_idx, (x, x_lengths, spec, spec_lengths, y, y_lengths, speakers, text_prompt, vision_prompt, audio_prompt) in enumerate(eval_loader):
         x, x_lengths = x.cuda(0), x_lengths.cuda(0)
         spec, spec_lengths = spec.cuda(0), spec_lengths.cuda(0)
         y, y_lengths = y.cuda(0), y_lengths.cuda(0)
@@ -331,10 +330,9 @@ def evaluate(hps, generator, eval_loader, writer_eval, emotion_encoder, emotion_
           vision_prompt = vision_prompt.cuda(0)
         if audio_prompt is not None:
           audio_prompt = text_prompt.cuda(0)
-        if eid is not None:
-          eid = eid.cuda(0)
+        # if eid is not None:
+        #   eid = eid.cuda(0)
 
-        # remove else
         x = x[:1]
         x_lengths = x_lengths[:1]
         spec = spec[:1]
@@ -345,9 +343,9 @@ def evaluate(hps, generator, eval_loader, writer_eval, emotion_encoder, emotion_
         text_prompt = text_prompt[:1]
         vision_prompt = vision_prompt[:1]
         audio_prompt = audio_prompt[:1]
-        eid = eid[:1]
+        # eid = eid[:1]
         break
-      y_hat, attn, mask, *_ = generator.module.infer(x, x_lengths, speakers, max_len=1000, text_prompt=text_prompt, vision_prompt=vision_prompt, audio_prompt=audio_prompt, eid=eid)
+      y_hat, attn, mask, *_ = generator.module.infer(x, x_lengths, speakers, max_len=1000, text_prompt=text_prompt, vision_prompt=vision_prompt, audio_prompt=audio_prompt)
       y_hat_lengths = mask.sum([1,2]).long() * hps.data.hop_length
 
       mel = spec_to_mel_torch(

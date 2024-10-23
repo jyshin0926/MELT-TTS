@@ -57,7 +57,7 @@ class MultiModalModule(nn.Module):
   def forward(self, text_features: torch.Tensor, vision_features: torch.Tensor, audio_features: torch.Tensor) -> torch.Tensor:
     attended_vision, _ = self.text_vision_attn(text_features, vision_features, vision_features)
     attended_audio, _ = self.text_audio_attn(text_features, audio_features, audio_features)
-    # combined_features = attended_vision + attended_audio # TODO:: concat?
+    # combined_features = attended_vision + attended_audio
     combined_features = torch.cat([attended_vision, attended_audio], dim=-1)
     
     combined_features = self.fc(combined_features)
@@ -67,7 +67,7 @@ class MultiModalModule(nn.Module):
 
 
 class Encoder(nn.Module):
-  def __init__(self, hidden_channels, filter_channels, n_heads, n_layers, kernel_size=1, p_dropout=0., window_size=4, **kwargs):
+  def __init__(self, hidden_channels:int, filter_channels:int, n_heads:int, n_layers:int, kernel_size:int=1, p_dropout:float=0., window_size:int=4, **kwargs):
     super().__init__()
     self.hidden_channels = hidden_channels
     self.filter_channels = filter_channels
