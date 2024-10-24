@@ -1,5 +1,7 @@
 import os
 import glob
+from typing import List
+import random
 import pandas as pd
 import sys
 import argparse
@@ -295,7 +297,8 @@ def load_filepaths_and_text(datasets: HParams):
     metadata['speaker_id'] = metadata['speaker_name'].apply(lambda name:speaker_id[name])
         
     if 'imagepath' in metadata.columns:
-      metadata['imagepath' == metadata['imagepath'].apply(lambda vp: vp if pd.notnull(vp) else "")]
+      metadata['imagepath' == metadata['imagepath'].apply(lambda vp: random.choice(vp) if vp else "")]
+      # metadata['imagepath' == metadata['imagepath'].apply(lambda vp: vp if pd.notnull(vp) else "")] # TODO:: pick randomaly among several img paths
     else:
       metadata['imagepath'] = ""
     if 'caption1' in metadata.columns:

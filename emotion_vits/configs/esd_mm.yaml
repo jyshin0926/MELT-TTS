@@ -36,7 +36,7 @@ data:
     speaker: ['M003']
     emotion: ['angry', 'contempt', 'disgusted', 'fear', 'happy', 'neutral', 'sad', 'surprised']
     datadir: ['/workspace/jaeyoung/datasets/mm-tts-dataset_resampled']
-    # audiodir:
+    # audiodir: ['','']
     filelist: ['/workspace/jaeyoung/StoryTeller/merged_caption_imgpath_MMTTS.csv']
   
   text_cleaners:
@@ -73,6 +73,6 @@ model:
   gin_channels: 256
   vision_model_path: /workspace/jaeyoung/checkpoints/onepeace/mmtts_vl_1013/checkpoint_last.pt
   audio_model_path: /workspace/jaeyoung/checkpoints/onepeace/esd_mmtts_al_1014/checkpoint_last.pt
-  emotion_classes: []
+  # emotion_classes: ['angry', 'contempt', 'disgusted', 'fear', 'happy', 'neutral', 'sad', 'surprised']
 
 
