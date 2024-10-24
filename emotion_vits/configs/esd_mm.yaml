@@ -13,38 +13,45 @@ train:
   segment_size: 8192
   init_lr_ratio: 1
   warmup_epochs: 0
-  c_mel:
-  c_kl:
+  c_mel: 45
+  c_kl: 1.0
 
 
 data:
-  training_files:
-    speaker:
-    emotion:
-    datadir:
-    audiodir:
-    filelist:
+  training_files: 
+    speaker: ['M003', 'M005', 'M007', 'M009', 'M011', 'M012', 'M013', 'M019', 
+              'M022', 'M023', 'M024', 'M025', 'M026', 'M027', 'M028',  'M029', 
+              'M030', 'M031', 'M032', 'M033', 'M034', 'M035', 'M037', 'M039', 
+              'M040', 'M041', 'M042', 
+              'W009', 'W011', 'W014', 'W015', 'W016', 
+              'W018', 'W019', 'W021', 'W023', 'W024', 'W025', 'W026', 'W028',
+              'W029', 'W033', 'W035', 'W036', 'W037', 'W038', 'W040',
+              '11', '12', '13', '14', '15', '16', '17', '18', '19', '20']
+    emotion: ['angry', 'contempt', 'disgusted', 'fear', 'happy', 'neutral', 'sad', 'surprised']
+    datadir: ['/workspace/jaeyoung/datasets/mm-tts-dataset_resampled', '/workspace/jaeyoung/datasets/ESD_eng_resampled']
+    # audiodir:
+    filelist: ['/workspace/jaeyoung/StoryTeller/merged_caption_imgpath_MMTTS.csv', '/workspace/jaeyoung/StoryTeller/Updated_ESD_with_Captions.csv']
 
   validation_files:
-    speaker:
-    emotion:
-    datadir:
-    audiodir:
-    filelist:
+    speaker: ['M003']
+    emotion: ['angry', 'contempt', 'disgusted', 'fear', 'happy', 'neutral', 'sad', 'surprised']
+    datadir: ['/workspace/jaeyoung/datasets/mm-tts-dataset_resampled']
+    # audiodir:
+    filelist: ['/workspace/jaeyoung/StoryTeller/merged_caption_imgpath_MMTTS.csv']
   
   text_cleaners:
-  max_wav_value:
-  sampling_rate:
-  filter_length:
-  hop_length:
-  win_length:
-  n_mel_channels:
-  mel_fmin:
-  mel_fmax:
-  add_blank:
-  n_speakers:
-  n_emotions:
-  n_sensitivity:
+  max_wav_value: 32768.0
+  sampling_rate: 22050
+  filter_length: 1024
+  hop_length: 256
+  win_length: 1024
+  n_mel_channels: 80
+  mel_fmin: 0.0
+  mel_fmax: null
+  add_blank: true
+  n_speakers: 57
+  n_emotions: 8
+  n_sensitivity: 3
   # cleaned_text
 
 model:
@@ -66,6 +73,6 @@ model:
   gin_channels: 256
   vision_model_path: /workspace/jaeyoung/checkpoints/onepeace/mmtts_vl_1013/checkpoint_last.pt
   audio_model_path: /workspace/jaeyoung/checkpoints/onepeace/esd_mmtts_al_1014/checkpoint_last.pt
-  emotion_classes:
+  emotion_classes: []
 
 

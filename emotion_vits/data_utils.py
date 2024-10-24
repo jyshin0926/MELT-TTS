@@ -2,6 +2,7 @@ import time
 import os
 import random
 import numpy as np
+import bisect
 import torch
 import torch.utils.data
 from torch.nn import functional as F
@@ -304,7 +305,6 @@ class TextAudioSpeakerCollate():
         if len(batch) == 0:
             return None
 
-        # Debugging: Print batch size
         print(f"Batch size: {len(batch)}")
 
         for i, x in enumerate(batch):
@@ -353,30 +353,24 @@ class TextAudioSpeakerCollate():
         for i in range(len(ids_sorted_decreasing)):
             row = batch[ids_sorted_decreasing[i]]
 
-            # Text
             text = row[0]
             text_padded[i, :text.size(0)] = text
             text_lengths[i] = text.size(0)
 
-            # Spec
             spec = row[1]
             spec_padded[i, :, :spec.size(1)] = spec
             spec_lengths_tensor[i] = spec.size(1)
 
-            # Wav
             wav = row[2]
             wav_padded[i, :, :wav.size(1)] = wav
             wav_lengths[i] = wav.size(1)
 
-            # Speaker ID
             sid[i] = row[3]
 
-            # Text Prompt
             text_prompt = row[4]
             text_prompt_padded[i, :text_prompt.size(0)] = text_prompt
             text_prompt_lengths[i] = (text_prompt > 0).sum().item()
 
-            # Vision Prompt
             vision_prompt = row[5]
             vision_prompt_padded[i] = vision_prompt
 
@@ -500,6 +494,33 @@ class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
         self.buckets, self.num_samples_per_bucket = self._create_buckets()
         self.total_size = sum(self.num_samples_per_bucket)
         self.num_samples = self.total_size // self.num_replicas
+        
+    def _bisect(self, x, lo=0, hi=None):
+      if hi is None:
+          hi = len(self.boundaries) - 1
+  
+      if hi > lo:
+          mid = (hi + lo) // 2
+          if self.boundaries[mid] < x and x <= self.boundaries[mid+1]:
+              return mid
+          elif x <= self.boundaries[mid]:
+              return self._bisect(x, lo, mid)
+          else:
+              return self._bisect(x, mid + 1, hi)
+      else:
+          return -1
+
+
+    # def _bisect(self, x):
+    #     """
+    #     Assigns a sample length to the appropriate bucket index using bisect.
+    #     """
+    #     # Find the rightmost boundary less than or equal to x
+    #     idx = bisect.bisect_right(self.boundaries, x) - 1
+    #     # Clamp the index to ensure it's within valid range
+    #     idx = max(0, min(idx, len(self.boundaries) - 2))
+    #     return idx
+
   
     def _create_buckets(self):
         buckets = [[] for _ in range(len(self.boundaries) - 1)]
@@ -542,7 +563,7 @@ class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
           num_samples_bucket = self.num_samples_per_bucket[i]
   
           # add extra samples to make it evenly divisible
-          if len_bucket > 0:  # TODO:: len_bucket 이 다 0 으로만 들어오는지 체크필요
+          if len_bucket > 0:
             rem = num_samples_bucket - len_bucket
             ids_bucket = ids_bucket + ids_bucket * (rem // len_bucket) + ids_bucket[:(rem % len_bucket)]
   
@@ -562,20 +583,5 @@ class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
       assert len(self.batches) * self.batch_size == self.num_samples
       return iter(self.batches)
   
-    def _bisect(self, x, lo=0, hi=None):
-      if hi is None:
-          hi = len(self.boundaries) - 1
-  
-      if hi > lo:
-          mid = (hi + lo) // 2
-          if self.boundaries[mid] < x and x <= self.boundaries[mid+1]:
-              return mid
-          elif x <= self.boundaries[mid]:
-              return self._bisect(x, lo, mid)
-          else:
-              return self._bisect(x, mid + 1, hi)
-      else:
-          return -1
-
     def __len__(self):
         return self.num_samples // self.batch_size

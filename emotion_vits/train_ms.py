@@ -75,8 +75,8 @@ def run(rank, n_gpus, hps):
   train_sampler = DistributedBucketSampler(
       train_dataset,
       hps.train.batch_size,
-      [32,300,400,500,600,700,800,900,1000],
-      # [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, float('inf')],
+      # [32,300,400,500,600,700,800,900,1000],
+      [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, float('inf')],
       num_replicas=n_gpus,
       rank=rank,
       shuffle=True)
@@ -196,7 +196,6 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
                                                  text_prompt=text_prompt,
                                                  vision_prompt=vision_prompt,  
                                                  audio_prompt=audio_prompt)
-                                                #  eid=eid)
 
       mel = spec_to_mel_torch(
           spec, 

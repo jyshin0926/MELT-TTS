@@ -23,7 +23,7 @@ def get_hparams(init=True):
   parser.add_argument('-c', '--config', type=str, default="/workspace/jaeyoung/StoryTeller/emotion_vits/configs/esd_mm.json",
                       help='JSON file for configuration')
   parser.add_argument('-m', '--model', type=str,
-                      default="/workspace/jaeyoung/checkpoints/vits",
+                      default="/workspace/jaeyoung/checkpoints/vits_1024",
                       help='Model name')
   
   args = parser.parse_args()
@@ -264,17 +264,12 @@ def plot_alignment_to_numpy(alignment, info=None):
 def load_wav_to_torch(full_path, target_sr=22050):
     audio, sr = torchaudio.load(full_path)
     
-    # Resample if the sampling rate doesn't match the target
     if sr != target_sr:
         resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=target_sr)
         audio = resampler(audio)
     
-    # If stereo, convert to mono by averaging the two channels
-    if audio.shape[0] > 1:  # If stereo
+    if audio.shape[0] > 1:
         audio = torch.mean(audio, dim=0, keepdim=True)
-    
-    # Print the shape for debugging
-    print(f"Audio shape after loading (before processing): {audio.shape}")
     
     return audio, target_sr  # Keep audio as 2D [1, num_samples] for mono
 
@@ -299,22 +294,21 @@ def load_filepaths_and_text(datasets: HParams):
     metadata['text'] = metadata['text'].apply(lambda text:text.strip("{}"))
     metadata['speaker_id'] = metadata['speaker_name'].apply(lambda name:speaker_id[name])
         
-    if 'vison_path' in metadata.columns:
-      metadata['vision_path' == metadata['vision_path'].apply(lambda vp: vp if pd.notnull(vp) else "")]
+    if 'imagepath' in metadata.columns:
+      metadata['imagepath' == metadata['imagepath'].apply(lambda vp: vp if pd.notnull(vp) else "")]
     else:
-      metadata['vision_path'] = ""
-    if 'caption' in metadata.columns:
-      metadata['caption' == metadata['caption'].apply(lambda vp: vp if pd.notnull(vp) else "")]
+      metadata['imagepath'] = ""
+    if 'caption1' in metadata.columns:
+      metadata['caption1' == metadata['caption1'].apply(lambda vp: vp if pd.notnull(vp) else "")]  # TODO:: pick randomaly among 5 captions
     else:
-      metadata['caption'] = ""
+      metadata['caption1'] = ""
     
-    dset.extend(metadata[['path','speaker_id', 'text', 'vision_path', 'caption']].values.tolist())
+    dset.extend(metadata[['path','speaker_id', 'text', 'imagepath', 'caption1']].values.tolist())
   return dset
 
 
 def create_speaker_lookup_table(data):
     speaker_ids = list(np.sort(np.unique([x for x in data]))[::-1])
-    # speaker_ids = sorted(list(set(speaker_names)), reverse=True)
     d = {speaker_ids[i]: i for i in range(len(speaker_ids))}
     print("Number of speakers:", len(d))
     print("Speaker IDS", d)
