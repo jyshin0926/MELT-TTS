@@ -542,7 +542,7 @@ class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
           num_samples_bucket = self.num_samples_per_bucket[i]
   
           # add extra samples to make it evenly divisible
-          if len_bucket > 0 :
+          if len_bucket > 0:  # TODO:: len_bucket 이 다 0 으로만 들어오는지 체크필요
             rem = num_samples_bucket - len_bucket
             ids_bucket = ids_bucket + ids_bucket * (rem // len_bucket) + ids_bucket[:(rem % len_bucket)]
   
