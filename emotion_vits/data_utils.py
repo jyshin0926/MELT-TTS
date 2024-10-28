@@ -268,17 +268,7 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
     
     def get_text_prompt(self, text_prompt):
         if text_prompt != "":
-            prompt_norm = text_to_sequence(text_prompt, self.text_cleaners)
-            prompt_norm = torch.LongTensor(prompt_norm)
-            if self.add_blank:
-                prompt_norm = commons.intersperse(prompt_norm, 0)
-            max_prompt_len = self.max_text_len  # Or another suitable value            
-            padded_prompt = torch.zeros(max_prompt_len, dtype=torch.long)
-            if len(prompt_norm) > max_prompt_len:
-                padded_prompt[:max_prompt_len] = prompt_norm[:max_prompt_len]
-            else:
-                padded_prompt[:len(prompt_norm)] = prompt_norm
-            return padded_prompt
+            return self.get_text(text_prompt)
         else:
             return torch.zeros(self.max_text_len, dtype=torch.long)
         

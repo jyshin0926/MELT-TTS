@@ -57,7 +57,6 @@ def main():
   # mp.spawn(run, nprocs=n_gpus, args=(n_gpus, hps,))
   run(0, n_gpus, hps)
 
-
 def run(rank, n_gpus, hps):
   global global_step
   if rank == 0:

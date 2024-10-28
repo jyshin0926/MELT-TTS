@@ -185,9 +185,9 @@ class EmotionEncoder(nn.Module):
     torch.cuda.empty_cache()
     
   def forward(self, text_prompt:str=None, vision_prompt:str=None, audio_prompt:str=None) -> torch.Tensor:   
-      text_batch_size = 20
-      image_batch_size = 10  
-      audio_batch_size = 10
+      text_batch_size = 8
+      image_batch_size = 2  
+      audio_batch_size = 2
 
       with torch.no_grad():
         self.load_vision_models()
